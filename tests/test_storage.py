@@ -15,6 +15,8 @@ from custom_components.curenergia.storage import (
     invoice_to_dict,
 )
 
+from .helpers import integration_log
+
 ENTRY_ID = "entry123"
 STORE_KEY = f"curenergia.{ENTRY_ID}"
 
@@ -145,3 +147,36 @@ async def test_async_remove_deletes_stored_data(
 
     await store.async_remove()
     assert STORE_KEY not in hass_storage
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        ["not", "a", "dict"],
+        {"invoices": {"X": {"invoice": {}}}, "mail": {}},
+        {"invoices": {"X": "nope"}},
+        {"invoices": {}, "mail": {"seen": 5}},
+        {"invoices": {}, "mail": {"failed": {"abc": "0.1.0"}}},
+        {"invoices": {}, "mail": "nope"},
+        "decimal",
+    ],
+)
+async def test_corrupt_data_starts_empty(
+    hass: HomeAssistant, hass_storage, fixture_invoice, caplog, corrupt
+):
+    if corrupt == "decimal":
+        good = build_stored(fixture_invoice("gas_2026-09"), None).to_dict()
+        good["invoice"]["total"] = "SECRET-9.9x"
+        corrupt = {"invoices": {"SECRET-NUMBER": good}, "mail": {"seen": [1]}}
+    hass_storage[STORE_KEY] = {"version": 1, "key": STORE_KEY, "data": corrupt}
+
+    store = InvoiceStore(hass, ENTRY_ID)
+    store.mail.seen = {99}
+    await store.async_load()
+
+    assert store.invoices == {}
+    assert store.mail == MailState()
+    log = integration_log(caplog)
+    assert "invalid" in log
+    assert "SECRET" not in log
+    assert "abc" not in log

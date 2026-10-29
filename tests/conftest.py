@@ -1,13 +1,35 @@
 """Fixtures comunes de los tests de la integración."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from unittest.mock import patch
 
 import pytest
 from homeassistant.core import HomeAssistant
 from pycurenergia import Invoice
 
-from .helpers import load_fixture_invoice
+from .helpers import FakeMailbox, load_fixture_invoice
 from .helpers import make_invoice as _make_invoice
+
+
+@pytest.fixture
+def mailbox() -> Iterator[FakeMailbox]:
+    """Sustituye el IMAP y el parser de PDF del coordinador por un buzón falso.
+
+    Tampoco carga plataformas: sus entidades se prueban aparte.
+    """
+    box = FakeMailbox()
+    with (
+        patch(
+            "custom_components.curenergia.coordinator.MailClient", return_value=box
+        ) as client_cls,
+        patch(
+            "custom_components.curenergia.coordinator.parse_invoice_pdf",
+            side_effect=box.parse,
+        ),
+        patch("custom_components.curenergia.PLATFORMS", []),
+    ):
+        box.client_cls = client_cls
+        yield box
 
 
 @pytest.fixture

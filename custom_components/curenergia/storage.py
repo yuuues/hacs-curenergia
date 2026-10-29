@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
@@ -16,6 +17,8 @@ from pycurenergia import (
     SupplyType,
     check_consistency,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
 
@@ -196,11 +199,20 @@ class InvoiceStore:
         self.mail = MailState()
         if not data:
             return
-        self.invoices = {
-            number: StoredInvoice.from_dict(item)
-            for number, item in data.get("invoices", {}).items()
-        }
-        self.mail = MailState.from_dict(data.get("mail", {}))
+        try:
+            invoices = {
+                number: StoredInvoice.from_dict(item)
+                for number, item in data.get("invoices", {}).items()
+            }
+            mail = MailState.from_dict(data.get("mail", {}))
+        except (AttributeError, KeyError, TypeError, ValueError, ArithmeticError):
+            # R15: todo se puede volver a leer del buzón. Sin datos en el log.
+            _LOGGER.warning(
+                "The stored CurEnergía data is invalid; starting with an empty store"
+            )
+            return
+        self.invoices = invoices
+        self.mail = mail
 
     def add(self, stored: StoredInvoice) -> bool:
         """Guarda la factura; ``False`` si ya existía ese número (no se reemplaza)."""
