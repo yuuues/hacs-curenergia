@@ -83,5 +83,31 @@
         "auto": "Automatic"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "total": { "name": "Latest invoice total" },
+      "kwh": { "name": "Latest invoice consumption" },
+      "price_kwh": { "name": "Latest invoice price per kWh" },
+      "issue_date": { "name": "Latest invoice issue date" },
+      "period_start": { "name": "Latest invoice period start" },
+      "period_end": { "name": "Latest invoice period end" },
+      "status": {
+        "name": "Latest invoice status",
+        "state": {
+          "ok": "OK",
+          "no_cuadra": "Mismatch",
+          "estimada": "Estimated reading",
+          "sin_datos": "Not enough data",
+          "no_leida": "Could not be read",
+          "gas": "Gas (not matched)"
+        }
+      },
+      "delta_kwh": { "name": "Latest invoice consumption difference" },
+      "delta_eur": { "name": "Latest invoice amount difference" }
+    },
+    "button": {
+      "check_now": { "name": "Check for invoices now" }
+    }
   }
 }

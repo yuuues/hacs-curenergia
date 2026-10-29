@@ -83,5 +83,31 @@
         "auto": "Automático"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "total": { "name": "Total de la última factura" },
+      "kwh": { "name": "Consumo de la última factura" },
+      "price_kwh": { "name": "Precio por kWh de la última factura" },
+      "issue_date": { "name": "Fecha de emisión de la última factura" },
+      "period_start": { "name": "Inicio del periodo de la última factura" },
+      "period_end": { "name": "Fin del periodo de la última factura" },
+      "status": {
+        "name": "Estado de la última factura",
+        "state": {
+          "ok": "Cuadra",
+          "no_cuadra": "No cuadra",
+          "estimada": "Lectura estimada",
+          "sin_datos": "Sin datos suficientes",
+          "no_leida": "No se pudo leer",
+          "gas": "Gas (sin casar)"
+        }
+      },
+      "delta_kwh": { "name": "Diferencia de consumo de la última factura" },
+      "delta_eur": { "name": "Diferencia de importe de la última factura" }
+    },
+    "button": {
+      "check_now": { "name": "Buscar facturas ahora" }
+    }
   }
 }

@@ -13,10 +13,7 @@ from .helpers import make_invoice as _make_invoice
 
 @pytest.fixture
 def mailbox() -> Iterator[FakeMailbox]:
-    """Sustituye el IMAP y el parser de PDF del coordinador por un buzón falso.
-
-    Tampoco carga plataformas: sus entidades se prueban aparte.
-    """
+    """Sustituye el IMAP y el parser de PDF del coordinador por un buzón falso."""
     box = FakeMailbox()
     with (
         patch(
@@ -26,7 +23,6 @@ def mailbox() -> Iterator[FakeMailbox]:
             "custom_components.curenergia.coordinator.parse_invoice_pdf",
             side_effect=box.parse,
         ),
-        patch("custom_components.curenergia.PLATFORMS", []),
     ):
         box.client_cls = client_cls
         yield box
