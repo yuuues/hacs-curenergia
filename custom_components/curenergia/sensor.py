@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -25,6 +24,7 @@ from .entity import (
     contract_identifier,
 )
 from .matching import InvoiceRow, Status
+from .util import money, price_per_kwh
 
 PARALLEL_UPDATES = 0
 
@@ -34,24 +34,17 @@ EUR_PER_KWH = "€/kWh"
 type Value = float | date | str | None
 
 
-def _money(value: Decimal | None) -> float | None:
-    """Euros o kWh como ``float`` con 2 decimales."""
-    return None if value is None else float(round(value, 2))
-
-
 def _price_kwh(row: InvoiceRow) -> float | None:
     invoice = row.stored.invoice
-    if invoice.kwh == 0:
-        return None
-    return float(round(invoice.total / invoice.kwh, 4))
+    return price_per_kwh(invoice.total, invoice.kwh)
 
 
 def _delta_kwh(row: InvoiceRow) -> float | None:
-    return None if row.comparison is None else _money(row.comparison.delta_kwh)
+    return None if row.comparison is None else money(row.comparison.delta_kwh)
 
 
 def _delta_eur(row: InvoiceRow) -> float | None:
-    return None if row.comparison is None else _money(row.comparison.delta_eur)
+    return None if row.comparison is None else money(row.comparison.delta_eur)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -68,14 +61,14 @@ COMMON_SENSORS: tuple[CurenergiaSensorDescription, ...] = (
         translation_key="total",
         device_class=SensorDeviceClass.MONETARY,
         native_unit_of_measurement=EUR,
-        value_fn=lambda row: _money(row.stored.invoice.total),
+        value_fn=lambda row: money(row.stored.invoice.total),
     ),
     CurenergiaSensorDescription(
         key="kwh",
         translation_key="kwh",
         device_class=SensorDeviceClass.ENERGY,
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        value_fn=lambda row: _money(row.stored.invoice.kwh),
+        value_fn=lambda row: money(row.stored.invoice.kwh),
     ),
     CurenergiaSensorDescription(
         key="price_kwh",

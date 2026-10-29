@@ -8,6 +8,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import DOMAIN
 from .coordinator import CurenergiaConfigEntry, CurenergiaCoordinator
 from .storage import InvoiceStore
+from .websocket import async_register_websocket
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -16,6 +17,7 @@ PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BUTTON]
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Configura la integración (solo mediante entradas de configuración)."""
+    async_register_websocket(hass)
     return True
 
 

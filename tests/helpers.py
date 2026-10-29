@@ -1,10 +1,13 @@
 """Utilidades de test: facturas construidas a partir de las fixtures anonimizadas."""
 
-from collections.abc import Collection
+from collections.abc import Callable, Collection, Iterator
+from contextlib import contextmanager
 from dataclasses import replace
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
@@ -23,7 +26,9 @@ from custom_components.curenergia.const import (
     DOMAIN,
     EDATA_AUTO,
 )
+from custom_components.curenergia.coordinator import CurenergiaCoordinator
 from custom_components.curenergia.mail import FetchResult, MailMessage
+from custom_components.curenergia.matching import Totals
 
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "lib" / "tests" / "fixtures"
 
@@ -146,3 +151,19 @@ def load_fixture_invoice(name: str) -> Invoice:
 def make_invoice(**changes: Any) -> Invoice:
     """Factura de luz de la fixture con los campos indicados sustituidos."""
     return replace(load_fixture_invoice("electricity_2026-10"), **changes)
+
+
+@contextmanager
+def fake_totals(
+    provider: Callable[[datetime, datetime], Totals | None],
+) -> Iterator[None]:
+    """Sustituye el proveedor de e-data de todos los contratos por ``provider``."""
+
+    async def totals_provider(self: CurenergiaCoordinator, cups: str):
+        async def wrapped(start: datetime, end: datetime) -> Totals | None:
+            return provider(start, end)
+
+        return wrapped
+
+    with patch.object(CurenergiaCoordinator, "async_totals_provider", totals_provider):
+        yield
