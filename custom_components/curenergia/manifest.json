@@ -1,0 +1,13 @@
+{
+  "domain": "curenergia",
+  "name": "CurEnergía Facturas",
+  "codeowners": ["@yuuues"],
+  "config_flow": true,
+  "dependencies": ["recorder", "websocket_api"],
+  "documentation": "https://github.com/yuuues/hacs-curenergia",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/yuuues/hacs-curenergia/issues",
+  "requirements": ["pycurenergia==0.1.0"],
+  "version": "0.1.0"
+}

@@ -1,0 +1,30 @@
+[project]
+name = "hacs-curenergia-dev"
+version = "0"
+description = "Entorno de desarrollo de la integración curenergia (no se publica)."
+requires-python = ">=3.14.2"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+ha = [
+    "pytest-homeassistant-custom-component==0.13.375",
+    "pycurenergia",
+    "ruff>=0.6",
+]
+
+[tool.uv.sources]
+pycurenergia = { path = "lib", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py314"
+extend-exclude = ["lib"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
