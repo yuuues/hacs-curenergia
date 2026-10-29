@@ -15,7 +15,16 @@ from .coordinator import CurenergiaConfigEntry, CurenergiaCoordinator
 from .matching import InvoiceRow, invoice_window
 from .util import money
 
-TO_REDACT = {"username", "password", "cups", "contract", "number"}
+TO_REDACT = {
+    "username",
+    "password",
+    # R27: el servidor y la carpeta pueden identificar al usuario.
+    "host",
+    "folder",
+    "cups",
+    "contract",
+    "number",
+}
 
 _DAY = timedelta(days=1)
 

@@ -63,7 +63,8 @@ async def test_diagnostics_redacted(
     mailbox.add(3, (b"gas", gas))
     mailbox.add(4, (b"bad", InvoiceParseError("number")))
     mailbox.add(5, (b"credit-note", UnsupportedInvoiceError("abono")))
-    entry = make_entry()
+    # R27: la carpeta puede llevar datos personales (p. ej. un nombre).
+    entry = make_entry(folder="Facturas/Casa-Secreta")
 
     # Para ``start+1d`` el proveedor no cubre la ventana.
     def provider(start, end):
@@ -80,6 +81,8 @@ async def test_diagnostics_redacted(
     sensitive = (
         ENTRY_DATA["username"],
         ENTRY_DATA["password"],
+        ENTRY_DATA["host"],
+        "Casa-Secreta",
         real.cups,
         real.contract,
         real.number,
@@ -91,8 +94,13 @@ async def test_diagnostics_redacted(
     for value in sensitive:
         assert value and value not in dump
 
-    assert result["options"] == dict(entry.options)
-    assert result["data"] == {**ENTRY_DATA, "username": REDACTED, "password": REDACTED}
+    assert result["options"] == {**entry.options, "folder": REDACTED}
+    assert result["data"] == {
+        **ENTRY_DATA,
+        "host": REDACTED,
+        "username": REDACTED,
+        "password": REDACTED,
+    }
     assert result["pycurenergia_version"] == LIB_VERSION
     assert result["mail"] == {
         "uidvalidity": 1,
