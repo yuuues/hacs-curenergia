@@ -18,6 +18,7 @@ from homeassistant.components.recorder.statistics import (
     StatisticsRow,
     statistics_during_period,
 )
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .matching import Totals, TotalsProvider
@@ -35,21 +36,45 @@ def edata_entries(hass: HomeAssistant) -> list[tuple[str, str]]:
     ]
 
 
+def cups_key(cups: str) -> str:
+    """CUPS para comparar (R28): los 20 primeros caracteres, en mayúsculas.
+
+    El CUPS puede llevar 2 caracteres más (el punto frontera) según quién lo
+    escriba; los 20 primeros identifican el contador.
+    """
+    return cups.upper()[:20]
+
+
+def _edata_entry(hass: HomeAssistant, entry_id: str) -> ConfigEntry | None:
+    entry = hass.config_entries.async_get_entry(entry_id)
+    if entry is None or entry.domain != EDATA_DOMAIN:
+        return None
+    return entry
+
+
+def edata_entry_cups_key(hass: HomeAssistant, entry_id: str) -> str | None:
+    """``cups_key`` del CUPS de la entrada de e-data ``entry_id`` (si existe)."""
+    entry = _edata_entry(hass, entry_id)
+    if entry is None:
+        return None
+    return cups_key(str(entry.data.get("cups", "")))
+
+
 def find_edata_id(
     hass: HomeAssistant, cups: str, override_entry_id: str | None
 ) -> str | None:
     """Id de estadísticas de la entrada de e-data (``scups`` en minúsculas)."""
     if override_entry_id is not None:
-        entry = hass.config_entries.async_get_entry(override_entry_id)
-        if entry is None or entry.domain != EDATA_DOMAIN:
+        entry = _edata_entry(hass, override_entry_id)
+        if entry is None:
             return None
     else:
-        wanted = cups.upper()
+        wanted = cups_key(cups)
         entry = next(
             (
                 candidate
                 for candidate in hass.config_entries.async_entries(EDATA_DOMAIN)
-                if str(candidate.data.get("cups", "")).upper() == wanted
+                if cups_key(str(candidate.data.get("cups", ""))) == wanted
             ),
             None,
         )

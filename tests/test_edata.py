@@ -117,6 +117,14 @@ async def test_find_edata_id_by_cups(hass):
     assert find_edata_id(hass, "ES9999999999999999ZZ", None) is None
 
 
+async def test_find_edata_id_compares_first_20_characters(hass):
+    """R28: e-data puede guardar el CUPS de 22 caracteres (con sufijo de punto)."""
+    _entry(hass, "ES0000000000000000AA1F", "00AA")
+    assert find_edata_id(hass, "es0000000000000000aa", None) == "00aa"
+    assert find_edata_id(hass, "ES0000000000000000AA0F", None) == "00aa"
+    assert find_edata_id(hass, "ES0000000000000000AB", None) is None
+
+
 async def test_find_edata_id_override_and_missing(hass):
     first = _entry(hass, "ES0000000000000000AA", "00AA")
     second = _entry(hass, "ES1111111111111111BB", "11BB")
