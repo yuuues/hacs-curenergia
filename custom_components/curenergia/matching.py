@@ -35,13 +35,18 @@ class Status(StrEnum):
 
 @dataclass(frozen=True)
 class Totals:
-    """Sumas de e-data en una ventana. ``eur`` es ``None`` si no hay costes."""
+    """Sumas de e-data en una ventana. ``eur`` es ``None`` si no hay costes.
+
+    ``complete`` (R24): el consumo tiene una fila en cada hora de la ventana.
+    Si no, la ventana puede estar cubierta (D3) pero un descuadre no es fiable.
+    """
 
     kwh: Decimal
     p1: Decimal | None
     p2: Decimal | None
     p3: Decimal | None
     eur: Decimal | None
+    complete: bool = True
 
 
 # Devuelve ``None`` si no hay e-data o la ventana no está cubierta.
@@ -280,7 +285,9 @@ async def match_contract(
         if comparison is None:
             status = Status.NO_DATA
         elif _exceeds(comparison, thresholds):
-            status = Status.MISMATCH
+            # R24: con horas sin dato, el descuadre puede deberse a ellas.
+            complete = comparison.edata.complete
+            status = Status.MISMATCH if complete else Status.NO_DATA
         else:
             status = Status.OK
         result.append(InvoiceRow(stored, status, comparison))

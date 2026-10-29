@@ -188,6 +188,7 @@ async def test_provider_dst_october_window_covered(hass, madrid_tz):
 
     assert totals is not None
     assert totals.kwh == Decimal(745)
+    assert totals.complete is True
 
 
 async def test_provider_incomplete_end_is_none(hass, madrid_tz):
@@ -234,6 +235,46 @@ async def test_provider_tolerates_small_gaps(hass, madrid_tz):
     assert totals.kwh == Decimal(718)
     assert totals.p1 is None
     assert totals.eur is None
+    # R24: cubierta, pero le faltan horas.
+    assert totals.complete is False
+
+
+@pytest.mark.parametrize("cost", ["power_cost", "energy_cost"])
+async def test_provider_cost_with_gap_has_eur_none(hass, madrid_tz, cost):
+    """R24: el coste solo vale si su serie cumple la misma cobertura (D3)."""
+    start = datetime(2026, 9, 1, tzinfo=MADRID)
+    end = datetime(2026, 10, 1, tzinfo=MADRID)
+    await _write_month(hass, start, end, costs=False)
+    moments = _hours(start, end)
+    for suffix in ("power_cost", "energy_cost"):
+        kept = moments[:100] + moments[105:] if suffix == cost else moments
+        await _write(hass, suffix, dict.fromkeys(kept, 0.1), unit="EUR")
+    await async_wait_recording_done(hass)
+    provider = make_provider(hass, "abcd")
+
+    totals = await provider(start, end)
+
+    assert totals is not None
+    assert totals.kwh == Decimal(720)
+    assert totals.complete is True
+    assert totals.eur is None
+
+
+async def test_provider_cost_with_small_gap_keeps_eur(hass, madrid_tz):
+    start = datetime(2026, 9, 1, tzinfo=MADRID)
+    end = datetime(2026, 10, 1, tzinfo=MADRID)
+    await _write_month(hass, start, end, costs=False)
+    moments = _hours(start, end)
+    kept = moments[:100] + moments[102:]
+    await _write(hass, "power_cost", dict.fromkeys(kept, 0.1), unit="EUR")
+    await _write(hass, "energy_cost", dict.fromkeys(moments, 0.1), unit="EUR")
+    await async_wait_recording_done(hass)
+    provider = make_provider(hass, "abcd")
+
+    totals = await provider(start, end)
+
+    assert totals is not None
+    assert totals.eur == Decimal("143.8")
 
 
 async def test_provider_without_costs_has_eur_none(hass, madrid_tz):
@@ -300,6 +341,7 @@ async def test_provider_min_rows_boundary(
     if covered:
         assert totals is not None
         assert totals.kwh == Decimal(real_hours - missing)
+        assert totals.complete is False
     else:
         assert totals is None
 

@@ -63,18 +63,34 @@ def _decimal(value: float) -> Decimal:
     return Decimal(str(round(value, 6)))
 
 
-def _covered(rows: list[StatisticsRow], start: datetime, end: datetime) -> bool:
+def _real_hours(start: datetime, end: datetime) -> int:
+    """Horas reales transcurridas en ``[start, end)``.
+
+    En UTC: con la misma ``tzinfo`` en ambos extremos, restar sobre la hora
+    local ignora el cambio de hora.
+    """
+    return int((end.astimezone(UTC) - start.astimezone(UTC)) / _HOUR)
+
+
+def _values(rows: list[StatisticsRow] | None) -> list[StatisticsRow]:
+    """Filas con valor horario."""
+    return [row for row in rows or () if row.get("state") is not None]
+
+
+def _covered(
+    rows: list[StatisticsRow] | None, start: datetime, end: datetime
+) -> bool:
     """Cobertura de Datadis (D3), con horas reales transcurridas.
 
     Toda la aritmética es en UTC: con la misma ``tzinfo`` en ambos extremos,
     restar o sumar horas sobre la hora local ignora el cambio de hora.
     """
-    values = [row for row in rows if row.get("state") is not None]
+    values = _values(rows)
     if not values:
         return False
     start_utc = start.astimezone(UTC)
     end_utc = end.astimezone(UTC)
-    hours = int((end_utc - start_utc) / _HOUR)
+    hours = _real_hours(start, end)
     first = datetime.fromtimestamp(values[0]["start"], tz=UTC)
     last = datetime.fromtimestamp(values[-1]["start"], tz=UTC)
     return (
@@ -86,8 +102,15 @@ def _covered(rows: list[StatisticsRow], start: datetime, end: datetime) -> bool:
 
 def _sum_states(rows: list[StatisticsRow] | None) -> Decimal | None:
     """Suma de los valores horarios, o ``None`` si no hay filas."""
-    values = [row["state"] for row in rows or () if row.get("state") is not None]
+    values = [row["state"] for row in _values(rows)]
     return _decimal(math.fsum(values)) if values else None
+
+
+def _covered_sum(
+    rows: list[StatisticsRow] | None, start: datetime, end: datetime
+) -> Decimal | None:
+    """Suma de la serie si cubre la ventana (D3); si no, ``None``."""
+    return _sum_states(rows) if _covered(rows, start, end) else None
 
 
 def _totals(
@@ -107,18 +130,21 @@ def _totals(
     stats = statistics_during_period(
         hass, start, end, set(ids.values()), "hour", None, {"state"}
     )
-    consumption = stats.get(ids["consumption"], [])
-    kwh = _sum_states(consumption)
-    if kwh is None or not _covered(consumption, start, end):
+    consumption = stats.get(ids["consumption"])
+    kwh = _covered_sum(consumption, start, end)
+    if kwh is None:
         return None
-    power = _sum_states(stats.get(ids["power_cost"]))
-    energy = _sum_states(stats.get(ids["energy_cost"]))
+    # R24: los costes solo valen si ambas series cumplen la misma cobertura.
+    power = _covered_sum(stats.get(ids["power_cost"]), start, end)
+    energy = _covered_sum(stats.get(ids["energy_cost"]), start, end)
+    eur = None if power is None or energy is None else power + energy
     return Totals(
         kwh=kwh,
         p1=_sum_states(stats.get(ids["p1_consumption"])),
         p2=_sum_states(stats.get(ids["p2_consumption"])),
         p3=_sum_states(stats.get(ids["p3_consumption"])),
-        eur=None if power is None or energy is None else power + energy,
+        eur=eur,
+        complete=len(_values(consumption)) == _real_hours(start, end),
     )
 
 

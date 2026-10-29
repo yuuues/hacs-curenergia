@@ -44,13 +44,14 @@ def window_of(s: StoredInvoice):
     return invoice_window(inv.period_start, inv.period_end, MADRID)
 
 
-def totals(kwh, p1=None, p2=None, p3=None, eur=None):
+def totals(kwh, p1=None, p2=None, p3=None, eur=None, *, complete=True):
     return Totals(
         kwh=D(kwh),
         p1=None if p1 is None else D(p1),
         p2=None if p2 is None else D(p2),
         p3=None if p3 is None else D(p3),
         eur=None if eur is None else D(eur),
+        complete=complete,
     )
 
 
@@ -248,6 +249,38 @@ async def test_missing_edata_costs_still_flags_kwh():
     r = eur_invoice("500")
     [row] = await run([r], {window_of(r): totals(150, eur=None)})
     assert row.status is Status.MISMATCH
+
+
+async def test_incomplete_window_over_threshold_is_no_data():
+    """R24: con horas sin dato en e-data, un descuadre no se puede afirmar."""
+    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    [row] = await run([r], {window_of(r): totals(150, complete=False)})
+    assert row.status is Status.NO_DATA
+    assert row.comparison is not None
+    assert row.comparison.delta_kwh == D(-50)
+
+
+async def test_incomplete_window_eur_over_threshold_is_no_data():
+    r = eur_invoice("110")
+    [row] = await run([r], {window_of(r): totals(100, eur=100, complete=False)})
+    assert row.status is Status.NO_DATA
+
+
+async def test_incomplete_window_within_threshold_is_ok():
+    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    [row] = await run([r], {window_of(r): totals(101, complete=False)})
+    assert row.status is Status.OK
+
+
+async def test_incomplete_combined_window_over_threshold_is_no_data():
+    r0 = stored("R0", date(2026, 7, 5), date(2026, 8, 4))
+    e = stored("E", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
+    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    combined = invoice_window(date(2026, 8, 5), date(2026, 10, 4), MADRID)
+    rows = await run([r0, e, r], {combined: totals(210, complete=False)})
+    assert rows[2].status is Status.NO_DATA
+    assert rows[2].comparison.group == ("E", "R")
+    assert rows[1].in_group_of == "R"
 
 
 async def test_provider_none_is_no_data():
