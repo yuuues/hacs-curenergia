@@ -18,8 +18,8 @@ rules:
   config-flow:
     status: done
   dependency-transparency:
-    status: done
-    comment: pycurenergia is open source (lib/ in this repository) and CI publishes it to PyPI from a tagged release.
+    status: todo
+    comment: pycurenergia not yet published on PyPI
   docs-actions:
     status: exempt
     comment: no service actions; a button entity is used
