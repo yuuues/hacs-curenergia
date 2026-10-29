@@ -86,14 +86,14 @@
   },
   "entity": {
     "sensor": {
-      "total": { "name": "Latest invoice total" },
-      "kwh": { "name": "Latest invoice consumption" },
-      "price_kwh": { "name": "Latest invoice price per kWh" },
-      "issue_date": { "name": "Latest invoice issue date" },
-      "period_start": { "name": "Latest invoice period start" },
-      "period_end": { "name": "Latest invoice period end" },
+      "total": { "name": "Amount" },
+      "kwh": { "name": "Consumption" },
+      "price_kwh": { "name": "Price per kWh" },
+      "issue_date": { "name": "Issue date" },
+      "period_start": { "name": "Period start" },
+      "period_end": { "name": "Period end" },
       "status": {
-        "name": "Latest invoice status",
+        "name": "Status",
         "state": {
           "ok": "OK",
           "no_cuadra": "Mismatch",
@@ -103,8 +103,8 @@
           "gas": "Gas (not matched)"
         }
       },
-      "delta_kwh": { "name": "Latest invoice consumption difference" },
-      "delta_eur": { "name": "Latest invoice amount difference" }
+      "delta_kwh": { "name": "Consumption vs e-data" },
+      "delta_eur": { "name": "Amount vs e-data" }
     },
     "button": {
       "check_now": { "name": "Check for invoices now" }

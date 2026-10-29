@@ -86,14 +86,14 @@
   },
   "entity": {
     "sensor": {
-      "total": { "name": "Total de la última factura" },
-      "kwh": { "name": "Consumo de la última factura" },
-      "price_kwh": { "name": "Precio por kWh de la última factura" },
-      "issue_date": { "name": "Fecha de emisión de la última factura" },
-      "period_start": { "name": "Inicio del periodo de la última factura" },
-      "period_end": { "name": "Fin del periodo de la última factura" },
+      "total": { "name": "Importe" },
+      "kwh": { "name": "Consumo" },
+      "price_kwh": { "name": "Precio por kWh" },
+      "issue_date": { "name": "Fecha de emisión" },
+      "period_start": { "name": "Inicio del periodo" },
+      "period_end": { "name": "Fin del periodo" },
       "status": {
-        "name": "Estado de la última factura",
+        "name": "Estado",
         "state": {
           "ok": "Cuadra",
           "no_cuadra": "No cuadra",
@@ -103,8 +103,8 @@
           "gas": "Gas (sin casar)"
         }
       },
-      "delta_kwh": { "name": "Diferencia de consumo de la última factura" },
-      "delta_eur": { "name": "Diferencia de importe de la última factura" }
+      "delta_kwh": { "name": "Diferencia kWh frente a e-data" },
+      "delta_eur": { "name": "Diferencia € frente a e-data" }
     },
     "button": {
       "check_now": { "name": "Buscar facturas ahora" }
