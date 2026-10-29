@@ -2,7 +2,7 @@
 
 > **English summary.** Custom Home Assistant integration (HACS) that reads your
 > CurEnergía invoices from an e-mail mailbox over IMAP, extracts the data from
-> the PDF (library [`pycurenergia`](lib/)) and compares each electricity invoice
+> the PDF (library [`pycurenergia`](https://github.com/yuuues/hacs-curenergia/tree/main/lib)) and compares each electricity invoice
 > with the consumption and cost that the **e-data** integration (Datadis)
 > stores in Home Assistant. It only **flags** differences; it does nothing else.
 > It is **not** an official CurEnergía, Iberdrola or Home Assistant project.
@@ -98,11 +98,11 @@ valer, Home Assistant te pide reautenticarte.
 | Opción | Valor por defecto | Para qué sirve |
 |---|---|---|
 | Carpeta | la elegida | Carpeta del buzón. Cambiarla descarta el estado guardado del buzón y se lee desde cero. |
-| Intervalo (horas) | 6 | Cada cuánto se mira el buzón (1–24). |
+| Intervalo de revisión (horas) | 6 | Cada cuánto se mira el buzón (1–24). |
 | Umbral de kWh | 1 | Se marca si la diferencia es **mayor** que este valor. |
 | Umbral de importe (%) | 2 | Se marca si la diferencia en € es **mayor** que este porcentaje. |
 | Mostrar panel lateral | sí | Reservada para el panel de una versión posterior. |
-| Guardar PDF de las facturas | no | Guarda una copia (ver abajo). |
+| Guardar los PDF de las facturas | no | Guarda una copia (ver abajo). |
 | Entrada de e-data | automático | Con qué entrada de e-data comparar. |
 
 Los umbrales son estrictos: una diferencia **igual** al umbral no se marca.
@@ -146,7 +146,7 @@ El botón **Buscar facturas ahora** lee el buzón sin esperar al sondeo.
 **Cobertura de Datadis.** Las fechas de una factura son `[inicio 00:00, fin + 1 día
 00:00)` en la zona horaria de Home Assistant. Se consideran cubiertas si e-data
 tiene casi todas las horas (como mucho 2 menos que las de la ventana), la primera
-empieza como mucho 2 horas después del inicio y la última empieza como mucho 3
+empieza antes de inicio + 2 horas y la última empieza como mucho 3
 horas antes del final. El cambio de hora (octubre/marzo) se tiene en cuenta. Si no
 se cumple, el estado es `sin_datos`.
 
