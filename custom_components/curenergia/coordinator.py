@@ -146,8 +146,8 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Id de e-data de ``cups`` (R19).
 
         Primero se busca por CUPS. El vínculo manual de las opciones solo se
-        aplica si ``cups`` es el del único contrato de luz guardado que no
-        tiene e-data por CUPS.
+        aplica si ``cups`` es el único CUPS de luz guardado que no tiene
+        e-data por CUPS (aunque lo compartan varios contratos).
         """
         edata_id = find_edata_id(self.hass, cups, None)
         if edata_id is not None:
@@ -155,17 +155,15 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         override = self.config_entry.options.get(CONF_EDATA_ENTRY, EDATA_AUTO)
         if override == EDATA_AUTO:
             return None
-        electricity = {
-            stored.invoice.contract: stored.invoice.cups
+        # R19b: se cuentan CUPS distintos (contratos con el mismo CUPS son el
+        # mismo contador).
+        unmatched = {
+            stored.invoice.cups.upper()
             for stored in self.store.invoices.values()
             if stored.invoice.supply is SupplyType.ELECTRICITY
+            and find_edata_id(self.hass, stored.invoice.cups, None) is None
         }
-        unmatched = [
-            contract_cups
-            for contract_cups in electricity.values()
-            if find_edata_id(self.hass, contract_cups, None) is None
-        ]
-        if len(unmatched) != 1 or unmatched[0].upper() != cups.upper():
+        if unmatched != {cups.upper()}:
             return None
         return find_edata_id(self.hass, cups, override)
 

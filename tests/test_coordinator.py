@@ -768,6 +768,27 @@ async def test_override_only_for_the_single_unmatched_contract(
         assert (await coordinator.async_totals_provider("ES-B")).edata_id == "xxxx"
 
 
+async def test_override_applies_to_contracts_sharing_the_unmatched_cups(
+    hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
+):
+    old = make_invoice(estimated=False, number="A1", contract="CT-A", cups="ES-M")
+    new = make_invoice(estimated=False, number="B1", contract="CT-B", cups="es-m")
+    manual = MockConfigEntry(domain="edata", data={"cups": "ES-X", "scups": "XXXX"})
+    manual.add_to_hass(hass)
+    mailbox.add(1, (b"a", old))
+    mailbox.add(2, (b"b", new))
+    used: list[tuple[str, str]] = []
+
+    with patch(
+        "custom_components.curenergia.coordinator.make_provider",
+        side_effect=_tagging_make_provider(used),
+    ):
+        coordinator = await _setup(hass, edata_entry=manual.entry_id)
+        # R19b: mismo CUPS = mismo contador; el vínculo manual vale para ambos.
+        assert [edata_id for edata_id, _ in used] == ["xxxx", "xxxx"]
+        assert (await coordinator.async_totals_provider("ES-M")).edata_id == "xxxx"
+
+
 async def test_override_ignored_with_several_unmatched_contracts(
     hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
 ):
