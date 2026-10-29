@@ -1,4 +1,11 @@
-"""Lectura de las estadísticas a largo plazo de e-data desde el recorder."""
+"""Lectura de las estadísticas a largo plazo de e-data desde el recorder.
+
+Las sumas se calculan sumando el valor horario (``state``), que es el valor de
+esa hora que escribe e-data, y no con ``change`` de ``statistic_during_period``:
+éste resta la suma de la hora anterior a la ventana, de modo que en las series
+dispersas (P1..P3, con filas solo en sus horas) pierde el valor de la primera
+fila, y además recorta el fin de la ventana a "ahora".
+"""
 
 from __future__ import annotations
 

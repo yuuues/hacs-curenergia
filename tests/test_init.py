@@ -1,9 +1,12 @@
 """Pruebas del esqueleto de la integración."""
 
+import pytest
 from homeassistant.loader import async_get_integration
 from pycurenergia import SupplyType
 
 from custom_components.curenergia.const import DOMAIN
+
+pytestmark = pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
 
 
 async def test_manifest_loads(hass):

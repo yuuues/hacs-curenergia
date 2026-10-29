@@ -18,6 +18,8 @@ from custom_components.curenergia.storage import (
 ENTRY_ID = "entry123"
 STORE_KEY = f"curenergia.{ENTRY_ID}"
 
+pytestmark = pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
+
 
 @pytest.mark.parametrize("name", ["electricity_2026-10", "gas_2026-09"])
 def test_invoice_round_trip(fixture_invoice, name):

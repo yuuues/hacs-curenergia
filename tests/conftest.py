@@ -10,11 +10,6 @@ from .helpers import load_fixture_invoice
 from .helpers import make_invoice as _make_invoice
 
 
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    """Permite cargar ``custom_components/curenergia`` en todos los tests."""
-
-
 @pytest.fixture
 async def madrid_tz(hass: HomeAssistant) -> None:
     """Fija la zona horaria de Home Assistant a Europe/Madrid."""

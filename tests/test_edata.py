@@ -27,13 +27,8 @@ from custom_components.curenergia.edata import (
 MADRID = ZoneInfo("Europe/Madrid")
 
 
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations():
-    """Sustituye al fixture de conftest: este módulo no carga ``curenergia``.
-
-    El de conftest depende de ``hass`` y, al ser autouse, se crearía antes que
-    ``recorder_mock``, que debe ir primero.
-    """
+# El recorder debe crearse antes que ``hass``.
+pytestmark = pytest.mark.usefixtures("recorder_mock", "enable_custom_integrations")
 
 
 def _entry(hass: HomeAssistant, cups: str, scups: str, title: str = "e-data"):
