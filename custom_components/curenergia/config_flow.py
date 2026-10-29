@@ -124,8 +124,8 @@ class CurenergiaConfigFlow(ConfigFlow, domain=DOMAIN):
         """Pide los datos de la cuenta IMAP y prueba el login."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            host = user_input[CONF_HOST]
-            username = user_input[CONF_USERNAME]
+            host = user_input[CONF_HOST].strip()
+            username = user_input[CONF_USERNAME].strip()
             await self.async_set_unique_id(f"{username}@{host}".lower())
             self._abort_if_unique_id_configured()
             port = int(user_input[CONF_PORT])
@@ -152,7 +152,11 @@ class CurenergiaConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(
             step_id="user",
-            data_schema=self.add_suggested_values_to_schema(schema, user_input),
+            data_schema=self.add_suggested_values_to_schema(
+                schema,
+                # No se vuelve a sugerir la contraseña rechazada.
+                {k: v for k, v in (user_input or {}).items() if k != CONF_PASSWORD},
+            ),
             errors=errors,
         )
 

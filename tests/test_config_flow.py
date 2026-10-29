@@ -3,6 +3,7 @@
 import json
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -61,9 +62,25 @@ def setup_entry():
             "custom_components.curenergia.async_unload_entry",
             new=AsyncMock(return_value=True),
             create=True,
-        ),
+        ) as unload,
     ):
-        yield setup
+        yield SimpleNamespace(setup=setup, unload=unload)
+
+
+async def _load_entry(hass: HomeAssistant, entry: MockConfigEntry, setup_entry) -> None:
+    """Monta la entrada (con los dobles) y comprueba el estado inicial."""
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is config_entries.ConfigEntryState.LOADED
+    assert setup_entry.setup.await_count == 1
+    assert setup_entry.unload.await_count == 0
+
+
+def _assert_reloaded(entry: MockConfigEntry, setup_entry) -> None:
+    assert entry.state is config_entries.ConfigEntryState.LOADED
+    assert setup_entry.unload.await_count == 1
+    assert setup_entry.setup.await_count == 2
 
 
 def _schema(result) -> dict[str, object]:
@@ -132,7 +149,7 @@ async def test_user_flow_creates_entry(hass, mail_client, setup_entry):
         CONF_EDATA_ENTRY: "auto",
     }
     mail_client.check_login.assert_called_once_with()
-    assert len(setup_entry.mock_calls) == 1
+    assert setup_entry.setup.await_count == 1
 
 
 @pytest.mark.parametrize(
@@ -157,6 +174,13 @@ async def test_user_flow_errors(hass, mail_client, setup_entry, caplog, exc, err
     assert "User@Example.es" not in caplog.text
     assert "imap.gmail.com" not in caplog.text
     assert "app-password" not in caplog.text
+    suggested = {
+        str(key): (key.description or {}).get("suggested_value")
+        for key in result["data_schema"].schema
+    }
+    assert suggested[CONF_USERNAME] == "User@Example.es"
+    assert suggested[CONF_HOST] == "imap.gmail.com"
+    assert suggested[CONF_PASSWORD] is None
 
     mail_client.check_login.side_effect = None
     result = await hass.config_entries.flow.async_configure(
@@ -164,6 +188,37 @@ async def test_user_flow_errors(hass, mail_client, setup_entry, caplog, exc, err
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "folder"
+
+
+async def test_user_flow_strips_host_and_username(hass, mail_client, setup_entry):
+    result = await _start_user_flow(hass)
+
+    with patch("custom_components.curenergia.config_flow.MailClient") as cls:
+        cls.return_value = mail_client
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                **USER_INPUT,
+                CONF_HOST: "imap.gmail.com ",
+                CONF_USERNAME: " User@Example.es ",
+                CONF_PASSWORD: " keep spaces ",
+            },
+        )
+    assert result["step_id"] == "folder"
+    assert cls.call_args_list[0].args == (
+        "imap.gmail.com",
+        993,
+        "User@Example.es",
+        " keep spaces ",
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_FOLDER: "INBOX"}
+    )
+    assert result["result"].unique_id == "user@example.es@imap.gmail.com"
+    assert result["data"][CONF_HOST] == "imap.gmail.com"
+    assert result["data"][CONF_USERNAME] == "User@Example.es"
+    assert result["data"][CONF_PASSWORD] == " keep spaces "
 
 
 async def test_user_flow_folders_unavailable(hass, mail_client, setup_entry):
@@ -198,7 +253,7 @@ async def test_user_flow_already_configured(hass, mail_client, setup_entry):
 
 async def test_reauth_flow(hass, mail_client, setup_entry):
     entry = _entry()
-    entry.add_to_hass(hass)
+    await _load_entry(hass, entry, setup_entry)
 
     result = await entry.start_reauth_flow(hass)
     assert result["type"] is FlowResultType.FORM
@@ -221,13 +276,14 @@ async def test_reauth_flow(hass, mail_client, setup_entry):
     assert entry.data[CONF_PASSWORD] == "new-password"
     assert entry.data[CONF_USERNAME] == "user@example.es"
     await hass.async_block_till_done()
+    _assert_reloaded(entry, setup_entry)
 
 
 async def test_options_flow(hass, mail_client, setup_entry):
     edata = MockConfigEntry(domain="edata", title="Casa", entry_id="edata-1")
     edata.add_to_hass(hass)
     entry = _entry()
-    entry.add_to_hass(hass)
+    await _load_entry(hass, entry, setup_entry)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.FORM
@@ -262,6 +318,7 @@ async def test_options_flow(hass, mail_client, setup_entry):
     }
     assert isinstance(entry.options[CONF_SCAN_HOURS], int)
     await hass.async_block_till_done()
+    _assert_reloaded(entry, setup_entry)
 
 
 async def test_options_flow_keeps_unlisted_values_selectable(
