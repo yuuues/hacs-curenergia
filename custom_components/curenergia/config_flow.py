@@ -51,6 +51,7 @@ from .mail import MailAuthError, MailClient, MailConnectionError, default_folder
 _LOGGER = logging.getLogger(__name__)
 
 TITLE = "CurEnergía"
+README_URL = "https://github.com/yuuues/hacs-curenergia#readme"
 
 _PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 
@@ -158,6 +159,8 @@ class CurenergiaConfigFlow(ConfigFlow, domain=DOMAIN):
                 {k: v for k, v in (user_input or {}).items() if k != CONF_PASSWORD},
             ),
             errors=errors,
+            # hassfest no admite URL en strings.json: van como marcador.
+            description_placeholders={"readme_url": README_URL},
         )
 
     async def async_step_folder(

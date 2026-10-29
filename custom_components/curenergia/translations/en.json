@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "CurEnergía mailbox",
-        "description": "Enter the IMAP account that receives your CurEnergía invoices. Use an app password, not your normal password. An app password gives access to the whole mailbox, so create it only for this purpose and revoke it if you stop using the integration. See the [README](https://github.com/yuuues/hacs-curenergia#readme) for the steps.",
+        "description": "Enter the IMAP account that receives your CurEnergía invoices. Use an app password, not your normal password. An app password gives access to the whole mailbox, so create it only for this purpose and revoke it if you stop using the integration. See the [README]({readme_url}) for the steps.",
         "data": {
           "host": "IMAP server",
           "port": "Port",

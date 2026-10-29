@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Buzón de CurEnergía",
-        "description": "Introduce la cuenta IMAP que recibe tus facturas de CurEnergía. Usa una contraseña de aplicación, no tu contraseña habitual. Una contraseña de aplicación da acceso a todo el buzón, así que créala solo para esto y revócala si dejas de usar la integración. Consulta el [README](https://github.com/yuuues/hacs-curenergia#readme) para ver los pasos.",
+        "description": "Introduce la cuenta IMAP que recibe tus facturas de CurEnergía. Usa una contraseña de aplicación, no tu contraseña habitual. Una contraseña de aplicación da acceso a todo el buzón, así que créala solo para esto y revócala si dejas de usar la integración. Consulta el [README]({readme_url}) para ver los pasos.",
         "data": {
           "host": "Servidor IMAP",
           "port": "Puerto",
