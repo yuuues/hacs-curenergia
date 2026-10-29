@@ -1,12 +1,17 @@
 """Pruebas del coordinador: lectura del buzón, ingesta y casación."""
 
+import copy
+import errno
 import logging
+import os
 from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pycurenergia import (
     InvoiceParseError,
@@ -24,7 +29,7 @@ from custom_components.curenergia.coordinator import (
 )
 from custom_components.curenergia.mail import MailConnectionError
 from custom_components.curenergia.matching import InvoiceRow, Status, Totals
-from custom_components.curenergia.storage import build_stored
+from custom_components.curenergia.storage import MailState, build_stored
 
 from .helpers import (
     ENTRY_DATA,
@@ -305,14 +310,21 @@ async def test_folder_change_resets_mail_state(
 
 
 async def test_connection_error_later_keeps_data(
-    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, caplog
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, fixture_invoice, caplog
 ):
     elec = _real(fixture_invoice("electricity_2026-10"))
     mailbox.add(1, (b"luz", elec))
+    mailbox.add(2, (b"bad", InvoiceReadError("damaged")))
     coordinator = await _setup(hass)
     before = coordinator.data
+    store = coordinator.store
+    mail_before = MailState.from_dict(store.mail.to_dict())
+    invoices_before = dict(store.invoices)
+    key = STORE_KEY.format(coordinator.config_entry.entry_id)
+    saved_before = copy.deepcopy(hass_storage[key])
 
-    mailbox.error = MailConnectionError("Cannot connect to the IMAP server")
+    mailbox.error = MailConnectionError("Cannot connect to the IMAP server (OSError)")
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         await coordinator.async_refresh()
 
@@ -321,12 +333,180 @@ async def test_connection_error_later_keeps_data(
     assert data.mail_error is True
     assert data.contracts == before.contracts
     assert data.last_mail_check == before.last_mail_check
-    assert "IMAP" in caplog.text
+    assert data.unreadable_emails == 1
+    records = [r for r in caplog.records if "mailbox" in r.getMessage()]
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert records[0].name == "custom_components.curenergia.coordinator"
+    assert "Cannot connect to the IMAP server (OSError)" in records[0].getMessage()
+    # Ni el estado del buzón ni las facturas cambian, ni se reescribe el Store.
+    assert store.mail == mail_before
+    assert store.invoices == invoices_before
+    assert hass_storage[key] == saved_before
 
     mailbox.error = None
     await coordinator.async_refresh()
     assert coordinator.data.mail_error is False
     assert coordinator.data.last_mail_check >= before.last_mail_check
+
+
+async def test_unexpected_fetch_error_later_keeps_data(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, caplog
+):
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    mailbox.add(1, (b"luz", elec))
+    coordinator = await _setup(hass)
+    before = coordinator.data
+
+    mailbox.error = RuntimeError(f"SECRET {elec.number}")
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG):
+        await coordinator.async_refresh()
+
+    # R22: igual que un fallo de conexión (D5).
+    assert coordinator.last_update_success is True
+    assert coordinator.data.mail_error is True
+    assert coordinator.data.contracts == before.contracts
+    records = [
+        r
+        for r in caplog.records
+        if r.name.startswith("custom_components.curenergia")
+        and r.levelno >= logging.WARNING
+    ]
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert "RuntimeError" in records[0].getMessage()
+    assert records[0].exc_info is None
+    assert "SECRET" not in caplog.text
+
+
+def _stored_payload(entry_id: str, *invoices) -> dict:
+    return {
+        "version": 1,
+        "key": STORE_KEY.format(entry_id),
+        "data": {
+            "invoices": {
+                inv.number: build_stored(inv, None).to_dict() for inv in invoices
+            },
+            "mail": {"uidvalidity": 1, "folder": "INBOX", "seen": [1]},
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "error",
+    [MailConnectionError("Cannot connect to the IMAP server"), RuntimeError("x")],
+)
+async def test_mail_error_on_setup_serves_stored_invoices(
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, fixture_invoice, error
+):
+    gas = fixture_invoice("gas_2026-09")
+    entry = make_entry()
+    hass_storage[STORE_KEY.format(entry.entry_id)] = _stored_payload(
+        entry.entry_id, gas
+    )
+    mailbox.error = error
+
+    # R21: con facturas guardadas, el primer refresco no falla.
+    await setup_entry(hass, entry)
+
+    data = entry.runtime_data.data
+    assert data.mail_error is True
+    assert data.last_mail_check is None
+    assert list(data.contracts) == [gas.contract]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [MailConnectionError("Cannot connect to the IMAP server"), RuntimeError("SECRET")],
+)
+async def test_mail_error_on_setup_with_empty_store_retries(
+    hass: HomeAssistant, mailbox: FakeMailbox, caplog, error
+):
+    mailbox.error = error
+
+    await setup_entry(hass, make_entry(), ConfigEntryState.SETUP_RETRY)
+
+    assert "SECRET" not in caplog.text
+
+
+async def test_email_total_used_only_with_a_single_pdf(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice
+):
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    gas = fixture_invoice("gas_2026-09")
+    # R20: con dos PDF no se sabe a cuál corresponde el importe del correo.
+    mailbox.add(1, (b"luz", elec), (b"gas", gas), email_total=elec.total)
+
+    coordinator = await _setup(hass)
+
+    invoices = coordinator.store.invoices
+    assert invoices[elec.number].email_total is None
+    assert invoices[gas.number].email_total is None
+    assert invoices[gas.number].problems == build_stored(gas, None).problems
+
+
+async def test_build_stored_error_recorded_as_failed(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, caplog
+):
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    mailbox.add(1, (b"luz", elec))
+
+    with (
+        patch(
+            "custom_components.curenergia.coordinator.build_stored",
+            side_effect=ValueError(f"SECRET {elec.number}"),
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        coordinator = await _setup(hass)
+
+    assert coordinator.store.invoices == {}
+    assert coordinator.store.mail.failed == {1: __version__}
+    log = integration_log(caplog)
+    assert "UID 1" in log
+    assert "ValueError" in log
+    assert "SECRET" not in caplog.text
+
+
+async def test_save_pdfs_partial_write_removed(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, tmp_path, caplog
+):
+    hass.config.config_dir = str(tmp_path)
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    mailbox.add(2, (b"%PDF-luz", elec))
+    real_open = Path.open
+
+    class FailingFile:
+        def __init__(self, file):
+            self._file = file
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self._file.close()
+
+        def write(self, data):
+            self._file.write(data[:3])
+            raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+
+    def fake_open(self, mode="r", *args, **kwargs):
+        file = real_open(self, mode, *args, **kwargs)
+        return FailingFile(file) if mode == "xb" else file
+
+    with (
+        patch.object(Path, "open", fake_open),
+        caplog.at_level(logging.WARNING),
+    ):
+        coordinator = await _setup(hass, save_pdfs=True)
+
+    assert list(coordinator.store.invoices) == [elec.number]
+    assert list((tmp_path / "curenergia").iterdir()) == []
+    log = integration_log(caplog)
+    assert "UID 2" in log
+    assert "OSError" in log
+    assert elec.number not in log
 
 
 async def test_save_pdfs_option_writes_file(
@@ -522,27 +702,90 @@ async def test_matching_threshold_is_strict(
     assert coordinator.data.contracts[elec.contract].rows[0].status is Status.OK
 
 
+def _tagging_make_provider(used: list[tuple[str, str]]):
+    """Doble de ``make_provider``: anota qué id de e-data usa cada ventana."""
+
+    def make(hass, edata_id):
+        async def provider(start, end):
+            used.append((edata_id, start.date().isoformat()))
+            return None
+
+        provider.edata_id = edata_id
+        return provider
+
+    return make
+
+
 async def test_totals_provider_override_and_missing(
     hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
 ):
     elec = make_invoice(estimated=False)
     other = MockConfigEntry(domain="edata", data={"cups": "ES-OTHER", "scups": "WXYZ"})
     other.add_to_hass(hass)
+    mailbox.add(1, (b"luz", elec))
+    used: list[tuple[str, str]] = []
 
     with patch(
         "custom_components.curenergia.coordinator.make_provider",
-        return_value="provider",
-    ) as make:
+        side_effect=_tagging_make_provider(used),
+    ):
         coordinator = await _setup(hass, edata_entry=other.entry_id)
-        # El vínculo manual manda aunque el CUPS no coincida.
-        assert await coordinator.async_totals_provider(elec.cups) == "provider"
-        make.assert_called_once_with(hass, "wxyz")
+        # Único contrato de luz sin e-data por CUPS: se usa el vínculo manual.
+        assert [edata_id for edata_id, _ in used] == ["wxyz"]
+        provider = await coordinator.async_totals_provider(elec.cups.lower())
+        assert provider.edata_id == "wxyz"
+        # Un CUPS que no es el de ese contrato no recibe el vínculo manual.
+        assert await coordinator.async_totals_provider("ES-SOMETHING-ELSE") is None
 
         hass.config_entries.async_update_entry(
             coordinator.config_entry,
             options={**coordinator.config_entry.options, CONF_EDATA_ENTRY: EDATA_AUTO},
         )
         assert await coordinator.async_totals_provider(elec.cups) is None
+
+
+async def test_override_only_for_the_single_unmatched_contract(
+    hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
+):
+    matched = make_invoice(estimated=False, number="A1", contract="CT-A", cups="ES-A")
+    unmatched = make_invoice(estimated=False, number="B1", contract="CT-B", cups="ES-B")
+    MockConfigEntry(domain="edata", data={"cups": "ES-A", "scups": "AAAA"}).add_to_hass(
+        hass
+    )
+    manual = MockConfigEntry(domain="edata", data={"cups": "ES-X", "scups": "XXXX"})
+    manual.add_to_hass(hass)
+    mailbox.add(1, (b"a", matched))
+    mailbox.add(2, (b"b", unmatched))
+    used: list[tuple[str, str]] = []
+
+    with patch(
+        "custom_components.curenergia.coordinator.make_provider",
+        side_effect=_tagging_make_provider(used),
+    ):
+        coordinator = await _setup(hass, edata_entry=manual.entry_id)
+        assert sorted(edata_id for edata_id, _ in used) == ["aaaa", "xxxx"]
+        assert (await coordinator.async_totals_provider("ES-A")).edata_id == "aaaa"
+        assert (await coordinator.async_totals_provider("ES-B")).edata_id == "xxxx"
+
+
+async def test_override_ignored_with_several_unmatched_contracts(
+    hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
+):
+    first = make_invoice(estimated=False, number="A1", contract="CT-A", cups="ES-A")
+    second = make_invoice(estimated=False, number="B1", contract="CT-B", cups="ES-B")
+    manual = MockConfigEntry(domain="edata", data={"cups": "ES-X", "scups": "XXXX"})
+    manual.add_to_hass(hass)
+    mailbox.add(1, (b"a", first))
+    mailbox.add(2, (b"b", second))
+
+    with patch("custom_components.curenergia.coordinator.make_provider") as make:
+        coordinator = await _setup(hass, edata_entry=manual.entry_id)
+        assert await coordinator.async_totals_provider("ES-A") is None
+        assert await coordinator.async_totals_provider("ES-B") is None
+
+    make.assert_not_called()
+    rows = [c.rows[0].status for c in coordinator.data.contracts.values()]
+    assert rows == [Status.NO_DATA, Status.NO_DATA]
 
 
 async def test_device_names_and_latest(

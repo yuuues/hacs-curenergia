@@ -107,10 +107,16 @@ def _save_pdf(folder: Path, name: str, data: bytes) -> None:
     if path.parent != root:
         raise _UnsafePathError
     try:
-        with path.open("xb") as file:
-            file.write(data)
+        file = path.open("xb")
     except FileExistsError:
         return
+    try:
+        with file:
+            file.write(data)
+    except OSError:
+        # No se deja un PDF a medias (se daría por guardado para siempre).
+        path.unlink(missing_ok=True)
+        raise
 
 
 class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
@@ -131,13 +137,37 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
     async def async_totals_provider(self, cups: str) -> TotalsProvider | None:
         """Proveedor de sumas de e-data para ``cups``; ``None`` si no hay e-data."""
-        override = self.config_entry.options.get(CONF_EDATA_ENTRY, EDATA_AUTO)
-        edata_id = find_edata_id(
-            self.hass, cups, None if override == EDATA_AUTO else override
-        )
+        edata_id = self._edata_id(cups)
         if edata_id is None:
             return None
         return make_provider(self.hass, edata_id)
+
+    def _edata_id(self, cups: str) -> str | None:
+        """Id de e-data de ``cups`` (R19).
+
+        Primero se busca por CUPS. El vínculo manual de las opciones solo se
+        aplica si ``cups`` es el del único contrato de luz guardado que no
+        tiene e-data por CUPS.
+        """
+        edata_id = find_edata_id(self.hass, cups, None)
+        if edata_id is not None:
+            return edata_id
+        override = self.config_entry.options.get(CONF_EDATA_ENTRY, EDATA_AUTO)
+        if override == EDATA_AUTO:
+            return None
+        electricity = {
+            stored.invoice.contract: stored.invoice.cups
+            for stored in self.store.invoices.values()
+            if stored.invoice.supply is SupplyType.ELECTRICITY
+        }
+        unmatched = [
+            contract_cups
+            for contract_cups in electricity.values()
+            if find_edata_id(self.hass, contract_cups, None) is None
+        ]
+        if len(unmatched) != 1 or unmatched[0].upper() != cups.upper():
+            return None
+        return find_edata_id(self.hass, cups, override)
 
     async def _async_update_data(self) -> CoordinatorData:
         options = self.config_entry.options
@@ -163,13 +193,23 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
             )
         except MailAuthError as err:
             raise ConfigEntryAuthFailed("The IMAP server rejected the login") from err
-        except MailConnectionError as err:
-            if self.data is None:
-                raise UpdateFailed(str(err)) from err
-            # D5: se siguen sirviendo las facturas guardadas.
-            _LOGGER.warning("Cannot read the mailbox, keeping stored invoices: %s", err)
+        except Exception as err:  # noqa: BLE001
+            # R22: un error inesperado cuenta como fallo de conexión. Su mensaje
+            # podría llevar datos, así que solo se registra la clase.
+            reason = (
+                str(err) if isinstance(err, MailConnectionError) else type(err).__name__
+            )
+            if self.data is None and not self.store.invoices:
+                raise UpdateFailed(f"Cannot read the mailbox: {reason}") from None
+            # D5 (y R21 en el primer refresco): se sirven las facturas guardadas.
+            _LOGGER.warning(
+                "Cannot read the mailbox, keeping stored invoices: %s", reason
+            )
             return await self._async_build_data(
-                mail_error=True, last_mail_check=self.data.last_mail_check
+                mail_error=True,
+                last_mail_check=None
+                if self.data is None
+                else self.data.last_mail_check,
             )
 
         if result.uidvalidity != self.store.mail.uidvalidity:
@@ -202,9 +242,12 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         """Lee los PDF de un correo y guarda las facturas nuevas."""
         mail = self.store.mail
         failed = unsupported = False
+        # R20: el importe del correo solo identifica la factura si hay un PDF.
+        email_total = message.email_total if len(message.pdfs) == 1 else None
         for pdf in message.pdfs:
             try:
                 invoice = await self.hass.async_add_executor_job(parse_invoice_pdf, pdf)
+                stored = build_stored(invoice, email_total)
             except (InvoiceParseError, InvoiceReadError):
                 _LOGGER.warning("UID %s: an invoice PDF could not be read", message.uid)
                 failed = True
@@ -214,8 +257,8 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 unsupported = True
                 continue
             except Exception as err:  # noqa: BLE001
-                # R17: como ``InvoiceReadError``. Ni mensaje ni traza: podrían
-                # llevar texto de la factura.
+                # R17/R22: como ``InvoiceReadError``. Ni mensaje ni traza:
+                # podrían llevar texto de la factura.
                 _LOGGER.warning(
                     "UID %s: unexpected error reading an invoice PDF (%s)",
                     message.uid,
@@ -224,7 +267,6 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 failed = True
                 continue
 
-            stored = build_stored(invoice, message.email_total)
             if not self.store.add(stored):
                 continue
             if stored.unreadable:
