@@ -111,9 +111,10 @@ def comparable_eur(invoice: Invoice) -> Decimal:
 
 def _sum_period(values: list[Decimal | None]) -> Decimal | None:
     """Suma de un tramo; ``None`` si alguna factura del grupo no lo desglosa."""
-    if any(v is None for v in values):
+    present = [v for v in values if v is not None]
+    if len(present) != len(values):
         return None
-    return sum(values, start=_ZERO)
+    return sum(present, start=_ZERO)
 
 
 def _diff(invoice: Decimal | None, edata: Decimal | None) -> Decimal | None:
@@ -183,6 +184,26 @@ def _contiguous(group: list[StoredInvoice]) -> bool:
     )
 
 
+def _link_group(
+    result: list[InvoiceRow], pending: list[int], closer: StoredInvoice
+) -> bool:
+    """Enlaza las estimadas pendientes con la factura que las cierra.
+
+    Solo si la cadena (factura anterior del contrato, si existe, + estimadas +
+    ``closer``) es contigua. Devuelve si lo era; si no, no toca nada: tras un
+    hueco, la factura que falta pudo ser la que las regularizó.
+    """
+    first = pending[0]
+    chain = [result[first - 1].stored] if first > 0 else []
+    chain += [result[i].stored for i in pending]
+    chain.append(closer)
+    if not _contiguous(chain):
+        return False
+    for i in pending:
+        result[i] = replace(result[i], in_group_of=closer.invoice.number)
+    return True
+
+
 async def match_contract(
     rows: list[StoredInvoice],
     provider: TotalsProvider,
@@ -191,11 +212,28 @@ async def match_contract(
 ) -> list[InvoiceRow]:
     """Casa las facturas de un contrato con e-data; filas ordenadas por periodo.
 
-    Las estimadas se acumulan en un grupo pendiente que cierra la siguiente
-    factura real: se compara la ventana combinada de todo el grupo (D8: si el
-    grupo tiene un hueco, una ``no_leida`` o empieza en la estimada más antigua
-    guardada, la real queda ``sin_datos``). Las estimadas se marcan siempre
-    ``estimada``; las ``no_leida`` también estropean el grupo en curso.
+    Reglas de agrupación (D8, R10, R11). Las estimadas (también las ilegibles
+    que son estimadas) se acumulan en un grupo pendiente, siempre con estado
+    ``estimada`` (o ``no_leida`` si son ilegibles) y con la comparación de su
+    propia ventana. El grupo lo cierra la siguiente factura con periodo real:
+
+    * Real legible: se compara la ventana combinada desde el inicio de la
+      primera estimada hasta el final de la real. Queda ``sin_datos`` si:
+      - la cadena no es contigua, contando la factura anterior del contrato
+        (R11: falta una factura antes de la primera estimada);
+      - el grupo contiene una estimada ilegible (D8);
+      - la primera estimada es la factura más antigua guardada (D8: no se sabe
+        si había estimadas anteriores);
+      - el proveedor no devuelve datos.
+    * Real ilegible (R10): cierra el grupo pero no se compara con él; queda
+      ``no_leida`` con su propia comparación. La siguiente real empieza un
+      grupo nuevo.
+    * Las estimadas pendientes reciben ``in_group_of`` con el número de quien
+      cierra el grupo, salvo si la cadena no es contigua (hueco o solape): la
+      factura que falta pudo ser la que las regularizó.
+
+    Una real sin estimadas pendientes se compara en su propia ventana, sin
+    importar los huecos que haya antes.
     """
     ordered = sorted(
         rows,
@@ -203,7 +241,7 @@ async def match_contract(
     )
     result: list[InvoiceRow] = []
     pending: list[int] = []  # índices (en ``result``) de las estimadas del grupo
-    tainted = False  # el grupo en curso contiene una factura ilegible
+    tainted = False  # el grupo en curso contiene una estimada ilegible
 
     for stored in ordered:
         invoice = stored.invoice
@@ -214,11 +252,14 @@ async def match_contract(
 
         if stored.unreadable:
             comparison = await _compare([stored], provider, tz)
-            result.append(InvoiceRow(stored, Status.UNREADABLE, comparison))
-            # Una ilegible dentro de un grupo (o que pudo ser estimada) impide
-            # fiarse de la suma de kWh del grupo.
-            if pending or invoice.estimated:
+            if invoice.estimated:
+                pending.append(len(result))
                 tainted = True
+            elif pending:
+                _link_group(result, pending, stored)
+                pending = []
+                tainted = False
+            result.append(InvoiceRow(stored, Status.UNREADABLE, comparison))
             continue
 
         if invoice.estimated:
@@ -227,16 +268,15 @@ async def match_contract(
             result.append(InvoiceRow(stored, Status.ESTIMATED, comparison))
             continue
 
-        # Factura real: cierra el grupo pendiente (si lo hay).
-        group = [result[i].stored for i in pending] + [stored]
-        closable = (
-            not tainted
-            and _contiguous(group)
-            # La primera estimada guardada es la más antigua del contrato: no se
-            # sabe si había estimadas anteriores sin guardar.
-            and not (pending and pending[0] == 0)
-        )
-        comparison = await _compare(group, provider, tz) if closable else None
+        # Factura real legible: cierra el grupo pendiente (si lo hay).
+        closable = True
+        if pending:
+            linked = _link_group(result, pending, stored)
+            closable = linked and not tainted and pending[0] != 0
+        comparison = None
+        if closable:
+            group = [result[i].stored for i in pending] + [stored]
+            comparison = await _compare(group, provider, tz)
         if comparison is None:
             status = Status.NO_DATA
         elif _exceeds(comparison, thresholds):
@@ -244,9 +284,6 @@ async def match_contract(
         else:
             status = Status.OK
         result.append(InvoiceRow(stored, status, comparison))
-
-        for i in pending:
-            result[i] = replace(result[i], in_group_of=invoice.number)
         pending = []
         tainted = False
 

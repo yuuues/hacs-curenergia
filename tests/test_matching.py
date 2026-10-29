@@ -352,6 +352,8 @@ async def test_combined_window_mismatch():
         {combined: totals(210)},  # factura suma 200 → Δ -10
     )
     assert rows[2].status is Status.MISMATCH
+    assert rows[2].comparison.group == ("E", "R")
+    assert rows[2].comparison.delta_kwh == D(-10)
     assert rows[1].in_group_of == "R"
 
 
@@ -403,6 +405,27 @@ async def test_group_with_gap_is_no_data():
     assert rows[2].status is Status.NO_DATA
     assert rows[2].comparison is None
     assert rows[1].status is Status.ESTIMATED
+    # Con el hueco, la factura que falta pudo ser la que regularizó a E.
+    assert rows[1].in_group_of is None
+
+
+async def test_first_estimated_not_contiguous_with_previous_is_no_data():
+    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
+    e = stored("E", date(2026, 3, 1), date(2026, 3, 31), estimated=True)  # falta feb
+    r = stored("R", date(2026, 4, 1), date(2026, 4, 30))
+    combined = invoice_window(date(2026, 3, 1), date(2026, 4, 30), MADRID)
+    rows = await run([r0, e, r], {combined: totals(200)})
+    assert rows[2].status is Status.NO_DATA
+    assert rows[2].comparison is None
+    assert rows[1].status is Status.ESTIMATED
+    assert rows[1].in_group_of is None
+
+
+async def test_real_with_gap_before_it_but_no_estimated_is_unaffected():
+    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
+    r = stored("R", date(2026, 3, 1), date(2026, 3, 31))  # falta feb
+    rows = await run([r0, r], {window_of(r): totals(100)})
+    assert rows[1].status is Status.OK
 
 
 async def test_gap_between_two_estimated_is_no_data():
@@ -413,6 +436,8 @@ async def test_gap_between_two_estimated_is_no_data():
     everything = invoice_window(date(2026, 6, 5), date(2026, 10, 4), MADRID)
     rows = await run([r0, e1, e2, r], {everything: totals(300)})
     assert rows[3].status is Status.NO_DATA
+    assert rows[1].in_group_of is None
+    assert rows[2].in_group_of is None
 
 
 async def test_overlap_is_not_contiguous():
@@ -424,6 +449,7 @@ async def test_overlap_is_not_contiguous():
         {invoice_window(date(2026, 6, 5), date(2026, 8, 4), MADRID): totals(200)},
     )
     assert rows[2].status is Status.NO_DATA
+    assert rows[1].in_group_of is None
 
 
 async def test_group_starting_at_oldest_estimated_is_no_data():
@@ -434,26 +460,84 @@ async def test_group_starting_at_oldest_estimated_is_no_data():
     assert rows[0].status is Status.ESTIMATED
     assert rows[1].status is Status.NO_DATA
     assert rows[1].comparison is None
+    assert rows[0].in_group_of == "R"  # contiguo: la real sí las regulariza
 
 
-async def test_unreadable_in_group_is_no_data():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    u = StoredInvoice(
+def unreadable(number, start, end, *, estimated):
+    """Factura ilegible (con incoherencias) de periodo [start, end]."""
+    return StoredInvoice(
         invoice=make_invoice(
-            number="U",
-            period_start=date(2026, 8, 5),
-            period_end=date(2026, 9, 4),
-            estimated=True,
+            number=number,
+            period_start=start,
+            period_end=end,
+            estimated=estimated,
+            kwh=D(100),
+            kwh_p1=None,
+            kwh_p2=None,
+            kwh_p3=None,
         ),
         problems=["sum_mismatch"],
         email_total=None,
     )
+
+
+async def test_unreadable_estimated_in_group_is_no_data():
+    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
     r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
     combined = invoice_window(date(2026, 7, 5), date(2026, 10, 4), MADRID)
     rows = await run([r0, e, u, r], {combined: totals(300)})
     assert rows[2].status is Status.UNREADABLE
     assert rows[3].status is Status.NO_DATA
+    assert rows[3].comparison is None
+    assert rows[1].in_group_of == "R"
+    assert rows[2].in_group_of == "R"
+
+
+async def test_unreadable_estimated_alone_makes_closing_real_no_data():
+    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
+    u = unreadable("U", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
+    r = stored("R", date(2026, 8, 5), date(2026, 9, 4))
+    combined = invoice_window(date(2026, 7, 5), date(2026, 9, 4), MADRID)
+    rows = await run([r0, u, r], {combined: totals(200)})
+    assert rows[1].status is Status.UNREADABLE
+    assert rows[1].in_group_of == "R"
+    assert rows[2].status is Status.NO_DATA
+
+
+async def test_unreadable_real_closes_open_group():
+    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 5), date(2026, 9, 4), estimated=False)
+    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    rows = await run([r0, e, u, r], {window_of(r): totals(100)})
+    assert rows[1].status is Status.ESTIMATED
+    assert rows[1].in_group_of == "U"
+    assert rows[2].status is Status.UNREADABLE
+    assert rows[2].in_group_of is None
+    # La siguiente real empieza un grupo nuevo, comparada en su propia ventana.
+    assert rows[3].status is Status.OK
+    assert rows[3].comparison.group == ("R",)
+
+
+async def test_unreadable_real_closing_group_keeps_own_comparison():
+    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 5), date(2026, 9, 4), estimated=False)
+    rows = await run([e, u], {window_of(u): totals(120)})
+    assert rows[1].status is Status.UNREADABLE
+    assert rows[1].comparison.group == ("U",)
+    assert rows[1].comparison.delta_kwh == D(-20)
+    assert rows[0].in_group_of == "U"
+
+
+async def test_unreadable_real_across_a_gap_does_not_link_estimated():
+    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 10), date(2026, 9, 4), estimated=False)
+    rows = await run([r0, e, u], {})
+    assert rows[2].status is Status.UNREADABLE
+    assert rows[1].in_group_of is None
 
 
 async def test_unreadable_has_own_comparison_when_provider_has_it():
