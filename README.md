@@ -114,9 +114,12 @@ sobrescribe un fichero existente y nada se escribe fuera de esa carpeta. Esas
 copias contienen tus datos personales: protégelas como tu copia de seguridad.
 
 **Vínculo con e-data.** En modo automático se busca la entrada de e-data con el
-mismo CUPS que la factura. Si eliges una entrada a mano, solo se aplica cuando hay
-**un único CUPS de luz sin pareja automática**; si hay dos o más sin pareja,
-ninguno se vincula (para no comparar dos contadores con el mismo e-data).
+mismo CUPS que la factura (se comparan los 20 primeros caracteres, sin distinguir
+mayúsculas, porque el CUPS puede llevar 2 caracteres más). Si eliges una entrada a
+mano, solo se aplica cuando hay **un único CUPS de luz sin pareja automática** y
+esa entrada no está ya vinculada automáticamente a otro CUPS de luz; si hay dos o
+más sin pareja, ninguno se vincula (para no comparar dos contadores con el mismo
+e-data).
 
 ## Entidades
 
@@ -139,7 +142,7 @@ El botón **Buscar facturas ahora** lee el buzón sin esperar al sondeo.
 | `ok` | La factura cuadra con e-data dentro de los umbrales. |
 | `no_cuadra` | El total de kWh, algún tramo P1/P2/P3 o el importe difieren de e-data por encima del umbral. |
 | `estimada` | La factura es de lectura estimada. **Nunca se marca**: las estimadas son normales y se regularizan en la siguiente factura real. |
-| `sin_datos` | No se puede comparar: no hay e-data, Datadis no cubre las fechas de la factura o no se puede cerrar con seguridad el grupo de estimadas (ver más abajo). |
+| `sin_datos` | No se puede comparar: no hay e-data, Datadis no cubre las fechas de la factura, falta la factura anterior o no se puede cerrar con seguridad el grupo de estimadas (ver más abajo). También cuando habría una diferencia pero a e-data le faltan horas. |
 | `no_leida` | La comprobación interna del PDF falló (las sumas no cuadran). Indica un fallo del lector, no de CurEnergía. |
 | `gas` | Factura de gas: se muestra sin casar. |
 
@@ -149,6 +152,18 @@ tiene casi todas las horas (como mucho 2 menos que las de la ventana), la primer
 empieza antes de inicio + 2 horas y la última empieza como mucho 3
 horas antes del final. El cambio de hora (octubre/marzo) se tiene en cuenta. Si no
 se cumple, el estado es `sin_datos`.
+
+**Datos incompletos nunca dan `no_cuadra`.** Si a e-data le falta alguna hora
+dentro de la ventana (aunque esté cubierta), una diferencia por encima del umbral
+se muestra como `sin_datos`, porque puede deberse a esas horas; si la diferencia
+está dentro del umbral, queda `ok`. Los costes de e-data solo se usan si
+`power_cost` y `energy_cost` cumplen la misma regla de cobertura; si no, la parte en
+€ no se calcula.
+
+**Falta la factura anterior.** Una factura real cuyo periodo no empieza el día
+siguiente al final de la factura anterior guardada de ese contrato (porque falta
+una factura o porque se solapan) queda `sin_datos`: la que falta pudo regularizar
+parte de esta. La factura más antigua guardada sí se compara.
 
 **Facturas estimadas seguidas de una real.** Una factura real tras una o más
 estimadas regulariza lo estimado, así que se compara la suma de todo el grupo
@@ -180,7 +195,8 @@ de demora y otros conceptos no entran.
 
 - Los **logs** nunca incluyen CUPS, contrato, número de factura, nombre, dirección,
   correo, asunto ni texto del correo o del PDF; se identifica un correo por su UID.
-- Los **diagnósticos** ocultan usuario, contraseña, CUPS, contrato y número de factura.
+- Los **diagnósticos** ocultan servidor IMAP, usuario, contraseña, carpeta, CUPS,
+  contrato y número de factura.
 - Las facturas se guardan en el almacenamiento de Home Assistant (`.storage/curenergia.*`)
   de esa entrada, y la contraseña en la propia entrada de configuración. Los PDF solo
   se guardan si lo activas.
@@ -193,6 +209,13 @@ de demora y otros conceptos no entran.
 Si el servidor IMAP no responde (corte de red, mantenimiento) y ya hay facturas
 guardadas, se registra un aviso y **se siguen sirviendo los datos guardados**: los
 sensores no pasan a «no disponible». Un login rechazado sí inicia la reautenticación.
+
+### Primera sincronización y correos grandes
+
+La primera vez se descargan todos los correos de facturas de la carpeta, **por
+lotes de 20**; tras cada lote se guarda lo leído, así que si la conexión se corta
+la siguiente revisión sigue donde se quedó. Los correos de **más de 15 MB** no se
+descargan: se cuentan como no soportados (`unsupported_emails`) y no se reintentan.
 
 ### PDFs que no se pueden leer
 
