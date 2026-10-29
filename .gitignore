@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+.superpowers/
+*.pdf
+!tests/fixtures/**/*.pdf
+!lib/tests/fixtures/**/*.pdf
+private/

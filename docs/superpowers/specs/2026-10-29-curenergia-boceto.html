@@ -1,0 +1,95 @@
+<style>
+  .ha { background:#1c1c1c; color:#e1e1e1; border-radius:12px; padding:14px 16px; font-family:Roboto,system-ui,sans-serif; font-size:13px; }
+  .ha h4 { margin:0 0 10px; font-size:16px; font-weight:500; color:#fff; }
+  .ha table { width:100%; border-collapse:collapse; }
+  .ha th { text-align:right; font-weight:500; color:#9b9b9b; padding:4px 6px; border-bottom:1px solid #333; white-space:nowrap; }
+  .ha td { text-align:right; padding:5px 6px; border-bottom:1px solid #2a2a2a; white-space:nowrap; }
+  .ha th:first-child, .ha td:first-child { text-align:left; }
+  .ok { color:#4caf50; } .warn { color:#ffb300; } .bad { color:#ef5350; } .dim { color:#777; }
+  .pill { display:inline-block; font-size:11px; padding:1px 6px; border-radius:8px; background:#3a3020; color:#ffb300; margin-left:4px; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .tab { padding:3px 10px; border-radius:12px; background:#2a2a2a; color:#aaa; font-size:12px; }
+  .tab.on { background:#03a9f4; color:#fff; }
+  .detail { background:#252525; text-align:left !important; color:#bbb; font-size:12px; line-height:1.6; }
+  .kpis { display:flex; gap:10px; margin-bottom:12px; }
+  .kpi { flex:1; background:#252525; border-radius:10px; padding:8px 10px; }
+  .kpi b { display:block; font-size:18px; color:#fff; font-weight:500; }
+  .kpi span { font-size:11px; color:#999; }
+  .side { display:flex; gap:0; }
+  .side .nav { width:120px; background:#111; color:#aaa; padding:10px; font-size:12px; line-height:2; border-radius:12px 0 0 12px; }
+  .side .nav .on { color:#03a9f4; }
+  .side .ha { border-radius:0 12px 12px 0; flex:1; }
+  .bar { height:70px; display:flex; align-items:flex-end; gap:6px; margin:6px 0 12px; }
+  .bar div { flex:1; display:flex; gap:2px; align-items:flex-end; height:100%; }
+  .bar i { flex:1; display:block; }
+</style>
+
+<h2>¿Cómo quieres ver la casación en Home Assistant?</h2>
+<p class="subtitle">Datos inventados. Columnas: lo que dice la factura frente a lo que dice Datadis (vía e-data) para las mismas fechas. Puedes marcar más de una si las quieres combinar.</p>
+
+<div class="options" data-multiselect>
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Tarjeta Markdown estándar (sin código de frontend)</h3>
+      <p>La integración expone los datos en un sensor y te doy una plantilla para pegar en una tarjeta Markdown. Tabla plana, sin interacción. Lo más sencillo de mantener.</p>
+      <div class="ha" style="margin-top:8px">
+        <h4>Facturas luz</h4>
+        <table>
+          <tr><th>Periodo</th><th>kWh fact.</th><th>kWh Datadis</th><th>Δ kWh</th><th>Importe</th><th>€/kWh</th></tr>
+          <tr><td>05/08 – 04/09</td><td>212</td><td>212</td><td>0</td><td>58,40 €</td><td>0,275</td></tr>
+          <tr><td>05/07 – 04/08</td><td>264</td><td>259</td><td>+5</td><td>71,12 €</td><td>0,269</td></tr>
+          <tr><td>04/06 – 04/07</td><td>198 ⚠</td><td>231</td><td>−33</td><td>52,07 €</td><td>0,263</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tarjeta propia (Lovelace) incluida en la integración</h3>
+      <p>Colores según la diferencia, aviso de lectura estimada, pestañas luz/gas y fila desplegable con el desglose de la factura. Hay que mantener un poco de JavaScript.</p>
+      <div class="ha" style="margin-top:8px">
+        <div class="tabs"><span class="tab on">Luz</span><span class="tab">Gas</span></div>
+        <table>
+          <tr><th>Periodo</th><th>kWh fact.</th><th>kWh Datadis</th><th>Δ</th><th>Importe</th><th>€ e-data</th><th>Δ €</th></tr>
+          <tr><td>▸ 05/08 – 04/09</td><td>212</td><td>212</td><td class="ok">0</td><td>58,40 €</td><td>57,95 €</td><td class="ok">+0,45</td></tr>
+          <tr><td>▾ 05/07 – 04/08</td><td>264</td><td>259</td><td class="warn">+5</td><td>71,12 €</td><td>69,80 €</td><td class="warn">+1,32</td></tr>
+          <tr><td class="detail" colspan="7">Potencia 9,81 € · Energía 44,20 € · Bono social 0,42 € · Impuesto elec. 2,78 € · Alquiler contador 0,81 € · Intereses demora 0,76 € · IVA 12,34 €<br>P1 61 / 60 kWh · P2 72 / 70 kWh · P3 131 / 129 kWh</td></tr>
+          <tr><td>▸ 04/06 – 04/07</td><td>198 <span class="pill">estimada</span></td><td>231</td><td class="dim">−33</td><td>52,07 €</td><td>60,10 €</td><td class="dim">−8,03</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Panel propio en la barra lateral</h3>
+      <p>Una página completa "Facturas" con resumen arriba, gráfico factura vs Datadis por mes y la tabla debajo. Lo más completo, pero también lo que más trabajo da.</p>
+      <div class="side" style="margin-top:8px">
+        <div class="nav">Resumen<br>Energía<br><span class="on">⚡ Facturas</span><br>Historial</div>
+        <div class="ha">
+          <div class="kpis">
+            <div class="kpi"><b>764 €</b><span>facturado 12 meses</span></div>
+            <div class="kpi"><b>+1,2 %</b><span>kWh fact. vs Datadis</span></div>
+            <div class="kpi"><b>2</b><span>lecturas estimadas</span></div>
+          </div>
+          <div class="bar">
+            <div><i style="height:60%;background:#03a9f4"></i><i style="height:60%;background:#8bc34a"></i></div>
+            <div><i style="height:75%;background:#03a9f4"></i><i style="height:73%;background:#8bc34a"></i></div>
+            <div><i style="height:56%;background:#03a9f4"></i><i style="height:66%;background:#8bc34a"></i></div>
+            <div><i style="height:80%;background:#03a9f4"></i><i style="height:80%;background:#8bc34a"></i></div>
+            <div><i style="height:90%;background:#03a9f4"></i><i style="height:88%;background:#8bc34a"></i></div>
+          </div>
+          <span class="dim" style="font-size:11px">■ factura &nbsp; <span style="color:#8bc34a">■</span> Datadis &nbsp;· tabla como en B debajo…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">Con cualquiera de ellas habría además sensores normales (última factura: importe, kWh, €/kWh, diferencia) para usar en automatizaciones o en el panel de Energía.</p>
