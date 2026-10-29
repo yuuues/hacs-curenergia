@@ -20,6 +20,7 @@ from pytest_homeassistant_custom_component.components.recorder.common import (
 from custom_components.curenergia.edata import (
     EDATA_DOMAIN,
     edata_entries,
+    edata_entry_cups_key,
     find_edata_id,
     make_provider,
 )
@@ -123,6 +124,15 @@ async def test_find_edata_id_compares_first_20_characters(hass):
     assert find_edata_id(hass, "es0000000000000000aa", None) == "00aa"
     assert find_edata_id(hass, "ES0000000000000000AA0F", None) == "00aa"
     assert find_edata_id(hass, "ES0000000000000000AB", None) is None
+
+
+async def test_edata_entry_cups_key(hass):
+    entry = _entry(hass, "es0000000000000000aa1f", "00AA")
+    other = MockConfigEntry(domain="otro", data={"cups": "ES0000000000000000AA"})
+    other.add_to_hass(hass)
+    assert edata_entry_cups_key(hass, entry.entry_id) == "ES0000000000000000AA"
+    assert edata_entry_cups_key(hass, other.entry_id) is None
+    assert edata_entry_cups_key(hass, "no-existe") is None
 
 
 async def test_find_edata_id_override_and_missing(hass):

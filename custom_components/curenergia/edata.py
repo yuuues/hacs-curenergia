@@ -102,9 +102,7 @@ def _values(rows: list[StatisticsRow] | None) -> list[StatisticsRow]:
     return [row for row in rows or () if row.get("state") is not None]
 
 
-def _covered(
-    rows: list[StatisticsRow] | None, start: datetime, end: datetime
-) -> bool:
+def _covered(rows: list[StatisticsRow] | None, start: datetime, end: datetime) -> bool:
     """Cobertura de Datadis (D3), con horas reales transcurridas.
 
     Toda la aritmética es en UTC: con la misma ``tzinfo`` en ambos extremos,
