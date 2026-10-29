@@ -362,8 +362,10 @@ async def test_ws_summary(
     fixture_invoice,
 ):
     a = make_invoice(number="A-1")  # 08-29..09-28, emitida 2026-10-06
+    # Otros contratos: con huecos entre periodos, la posterior sería sin_datos (R25).
     b = make_invoice(
         number="B-1",
+        contract="CT-0000002",
         issue_date=date(2026, 6, 10),
         period_start=date(2026, 5, 1),
         period_end=date(2026, 5, 31),
@@ -371,6 +373,7 @@ async def test_ws_summary(
     # Fuera de los últimos 365 días: no cuenta.
     old = make_invoice(
         number="D-1",
+        contract="CT-0000003",
         issue_date=date(2025, 8, 10),
         period_start=date(2025, 7, 1),
         period_end=date(2025, 7, 31),

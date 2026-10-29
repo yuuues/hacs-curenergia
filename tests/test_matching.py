@@ -454,11 +454,47 @@ async def test_first_estimated_not_contiguous_with_previous_is_no_data():
     assert rows[1].in_group_of is None
 
 
-async def test_real_with_gap_before_it_but_no_estimated_is_unaffected():
+async def test_real_after_a_gap_is_no_data():
+    """R25: falta la factura anterior; pudo regularizar lo que trae esta."""
     r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
     r = stored("R", date(2026, 3, 1), date(2026, 3, 31))  # falta feb
+    rows = await run([r0, r], {window_of(r0): totals(100), window_of(r): totals(100)})
+    # La más antigua guardada se sigue comparando.
+    assert rows[0].status is Status.OK
+    assert rows[1].status is Status.NO_DATA
+    assert rows[1].comparison is None
+    assert rows[1].in_group_of is None
+
+
+async def test_real_overlapping_previous_is_no_data():
+    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
+    r = stored("R", date(2026, 1, 31), date(2026, 2, 28))  # solapa un día
     rows = await run([r0, r], {window_of(r): totals(100)})
+    assert rows[1].status is Status.NO_DATA
+
+
+async def test_real_after_a_gap_following_an_unreadable_is_no_data():
+    """La ilegible también cuenta como factura anterior guardada."""
+    u = unreadable("U", date(2026, 1, 1), date(2026, 1, 31), estimated=False)
+    r = stored("R", date(2026, 3, 1), date(2026, 3, 31))
+    rows = await run([u, r], {window_of(r): totals(100)})
+    assert rows[0].status is Status.UNREADABLE
+    assert rows[1].status is Status.NO_DATA
+
+
+async def test_real_contiguous_with_an_unreadable_is_compared():
+    u = unreadable("U", date(2026, 1, 1), date(2026, 1, 31), estimated=False)
+    r = stored("R", date(2026, 2, 1), date(2026, 2, 28))
+    rows = await run([u, r], {window_of(r): totals(100)})
     assert rows[1].status is Status.OK
+
+
+async def test_unreadable_real_after_a_gap_stays_unreadable():
+    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
+    u = unreadable("U", date(2026, 3, 1), date(2026, 3, 31), estimated=False)
+    rows = await run([r0, u], {window_of(u): totals(100)})
+    assert rows[1].status is Status.UNREADABLE
+    assert rows[1].comparison is not None
 
 
 async def test_gap_between_two_estimated_is_no_data():

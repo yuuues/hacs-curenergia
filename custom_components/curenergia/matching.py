@@ -237,8 +237,11 @@ async def match_contract(
       cierra el grupo, salvo si la cadena no es contigua (hueco o solape): la
       factura que falta pudo ser la que las regularizó.
 
-    Una real sin estimadas pendientes se compara en su propia ventana, sin
-    importar los huecos que haya antes.
+    Una real legible sin estimadas pendientes se compara en su propia ventana,
+    salvo si no es contigua con la factura anterior guardada del contrato
+    (hueco o solape, aunque la anterior sea ilegible): entonces queda
+    ``sin_datos`` (R25), porque la factura que falta pudo regularizar parte de
+    esta. La factura más antigua guardada sí se compara.
     """
     ordered = sorted(
         rows,
@@ -274,10 +277,12 @@ async def match_contract(
             continue
 
         # Factura real legible: cierra el grupo pendiente (si lo hay).
-        closable = True
         if pending:
             linked = _link_group(result, pending, stored)
             closable = linked and not tainted and pending[0] != 0
+        else:
+            # R25: contigua con la factura anterior guardada (si existe).
+            closable = not result or _contiguous([result[-1].stored, stored])
         comparison = None
         if closable:
             group = [result[i].stored for i in pending] + [stored]
