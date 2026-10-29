@@ -64,14 +64,23 @@ def _decimal(value: float) -> Decimal:
 
 
 def _covered(rows: list[StatisticsRow], start: datetime, end: datetime) -> bool:
-    """Cobertura de Datadis (D3), con horas reales transcurridas."""
-    if not rows:
+    """Cobertura de Datadis (D3), con horas reales transcurridas.
+
+    Toda la aritmética es en UTC: con la misma ``tzinfo`` en ambos extremos,
+    restar o sumar horas sobre la hora local ignora el cambio de hora.
+    """
+    values = [row for row in rows if row.get("state") is not None]
+    if not values:
         return False
-    hours = int((end - start) / _HOUR)
-    first = datetime.fromtimestamp(rows[0]["start"], tz=UTC)
-    last = datetime.fromtimestamp(rows[-1]["start"], tz=UTC)
+    start_utc = start.astimezone(UTC)
+    end_utc = end.astimezone(UTC)
+    hours = int((end_utc - start_utc) / _HOUR)
+    first = datetime.fromtimestamp(values[0]["start"], tz=UTC)
+    last = datetime.fromtimestamp(values[-1]["start"], tz=UTC)
     return (
-        len(rows) >= hours - 2 and first < start + 2 * _HOUR and last >= end - 3 * _HOUR
+        len(values) >= hours - 2
+        and first < start_utc + 2 * _HOUR
+        and last >= end_utc - 3 * _HOUR
     )
 
 
@@ -84,11 +93,6 @@ def _sum_states(rows: list[StatisticsRow] | None) -> Decimal | None:
 def _totals(
     hass: HomeAssistant, edata_id: str, start: datetime, end: datetime
 ) -> Totals | None:
-    # Se suman los valores horarios (``state``) en vez de usar ``change`` de
-    # ``statistic_during_period``: éste resta la suma de la hora anterior a la
-    # ventana y, en las series dispersas (P1..P3), si esa hora no tiene fila
-    # parte de la primera fila de la ventana y pierde su valor. Además recorta
-    # el fin de la ventana a "ahora".
     ids = {
         suffix: f"{EDATA_DOMAIN}:{edata_id}_{suffix}"
         for suffix in (
@@ -103,11 +107,9 @@ def _totals(
     stats = statistics_during_period(
         hass, start, end, set(ids.values()), "hour", None, {"state"}
     )
-    consumption = stats.get(ids["consumption"])
-    if not consumption or not _covered(consumption, start, end):
-        return None
+    consumption = stats.get(ids["consumption"], [])
     kwh = _sum_states(consumption)
-    if kwh is None:
+    if kwh is None or not _covered(consumption, start, end):
         return None
     power = _sum_states(stats.get(ids["power_cost"]))
     energy = _sum_states(stats.get(ids["energy_cost"]))

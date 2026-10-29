@@ -139,7 +139,7 @@ async def test_edata_entries(hass):
     )
 
 
-async def test_provider_sums_window(recorder_mock, hass, madrid_tz):
+async def test_provider_sums_window(hass, madrid_tz):
     # Con historia anterior: la ventana no empieza en la primera fila.
     await _write_month(
         hass, datetime(2026, 8, 1, tzinfo=MADRID), datetime(2026, 10, 1, tzinfo=MADRID)
@@ -158,7 +158,7 @@ async def test_provider_sums_window(recorder_mock, hass, madrid_tz):
     assert totals.eur == Decimal(144)
 
 
-async def test_provider_sums_window_at_start_of_history(recorder_mock, hass, madrid_tz):
+async def test_provider_sums_window_at_start_of_history(hass, madrid_tz):
     await _write_month(
         hass, datetime(2026, 9, 1, tzinfo=MADRID), datetime(2026, 10, 1, tzinfo=MADRID)
     )
@@ -176,7 +176,7 @@ async def test_provider_sums_window_at_start_of_history(recorder_mock, hass, mad
     assert totals.eur == Decimal(144)
 
 
-async def test_provider_dst_october_window_covered(recorder_mock, hass, madrid_tz):
+async def test_provider_dst_october_window_covered(hass, madrid_tz):
     start = datetime(2026, 10, 1, tzinfo=MADRID)
     end = datetime(2026, 11, 1, tzinfo=MADRID)
     utc = ZoneInfo("UTC")
@@ -190,7 +190,7 @@ async def test_provider_dst_october_window_covered(recorder_mock, hass, madrid_t
     assert totals.kwh == Decimal(745)
 
 
-async def test_provider_incomplete_end_is_none(recorder_mock, hass, madrid_tz):
+async def test_provider_incomplete_end_is_none(hass, madrid_tz):
     start = datetime(2026, 9, 1, tzinfo=MADRID)
     end = datetime(2026, 10, 1, tzinfo=MADRID)
     await _write_month(hass, start, end - timedelta(hours=10))
@@ -199,7 +199,7 @@ async def test_provider_incomplete_end_is_none(recorder_mock, hass, madrid_tz):
     assert await provider(start, end) is None
 
 
-async def test_provider_incomplete_start_is_none(recorder_mock, hass, madrid_tz):
+async def test_provider_incomplete_start_is_none(hass, madrid_tz):
     start = datetime(2026, 9, 1, tzinfo=MADRID)
     end = datetime(2026, 10, 1, tzinfo=MADRID)
     await _write_month(hass, start + timedelta(hours=10), end)
@@ -208,7 +208,7 @@ async def test_provider_incomplete_start_is_none(recorder_mock, hass, madrid_tz)
     assert await provider(start, end) is None
 
 
-async def test_provider_without_data_is_none(recorder_mock, hass, madrid_tz):
+async def test_provider_without_data_is_none(hass, madrid_tz):
     provider = make_provider(hass, "abcd")
     assert (
         await provider(
@@ -218,7 +218,7 @@ async def test_provider_without_data_is_none(recorder_mock, hass, madrid_tz):
     )
 
 
-async def test_provider_tolerates_small_gaps(recorder_mock, hass, madrid_tz):
+async def test_provider_tolerates_small_gaps(hass, madrid_tz):
     """Se admiten hasta 2 horas sin fila dentro de la ventana (D3)."""
     start = datetime(2026, 9, 1, tzinfo=MADRID)
     end = datetime(2026, 10, 1, tzinfo=MADRID)
@@ -236,7 +236,7 @@ async def test_provider_tolerates_small_gaps(recorder_mock, hass, madrid_tz):
     assert totals.eur is None
 
 
-async def test_provider_without_costs_has_eur_none(recorder_mock, hass, madrid_tz):
+async def test_provider_without_costs_has_eur_none(hass, madrid_tz):
     start = datetime(2026, 9, 1, tzinfo=MADRID)
     end = datetime(2026, 10, 1, tzinfo=MADRID)
     await _write_month(hass, start, end, costs=False)
@@ -249,7 +249,7 @@ async def test_provider_without_costs_has_eur_none(recorder_mock, hass, madrid_t
     assert totals.eur is None
 
 
-async def test_provider_with_only_one_cost_has_eur_none(recorder_mock, hass, madrid_tz):
+async def test_provider_with_only_one_cost_has_eur_none(hass, madrid_tz):
     start = datetime(2026, 9, 1, tzinfo=MADRID)
     end = datetime(2026, 10, 1, tzinfo=MADRID)
     await _write_month(hass, start, end, costs=False)
@@ -261,3 +261,72 @@ async def test_provider_with_only_one_cost_has_eur_none(recorder_mock, hass, mad
 
     assert totals is not None
     assert totals.eur is None
+
+
+async def _consumption_rows(hass, moments: list[datetime]) -> None:
+    await _write(hass, "consumption", dict.fromkeys(moments, 1.0))
+    await async_wait_recording_done(hass)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "real_hours"),
+    [
+        (
+            datetime(2026, 10, 1, tzinfo=MADRID),
+            datetime(2026, 11, 1, tzinfo=MADRID),
+            745,
+        ),
+        (datetime(2026, 3, 1, tzinfo=MADRID), datetime(2026, 4, 1, tzinfo=MADRID), 743),
+        (
+            datetime(2026, 9, 1, tzinfo=MADRID),
+            datetime(2026, 10, 1, tzinfo=MADRID),
+            720,
+        ),
+    ],
+    ids=["october-745h", "march-743h", "september-720h"],
+)
+@pytest.mark.parametrize(("missing", "covered"), [(2, True), (3, False)])
+async def test_provider_min_rows_boundary(
+    hass, madrid_tz, start, end, real_hours, missing, covered
+):
+    """D3: al menos ``horas reales - 2`` filas (misma ZoneInfo en ambos extremos)."""
+    moments = _hours(start, end)
+    assert len(moments) == real_hours
+    await _consumption_rows(hass, moments[:10] + moments[10 + missing :])
+    provider = make_provider(hass, "abcd")
+
+    totals = await provider(start, end)
+
+    if covered:
+        assert totals is not None
+        assert totals.kwh == Decimal(real_hours - missing)
+    else:
+        assert totals is None
+
+
+@pytest.mark.parametrize(
+    ("first_offset", "covered"), [(1, True), (2, False), (3, False)]
+)
+async def test_provider_first_row_must_start_before_two_hours(
+    hass, madrid_tz, first_offset, covered
+):
+    start = datetime(2026, 9, 1, tzinfo=MADRID)
+    end = datetime(2026, 10, 1, tzinfo=MADRID)
+    await _consumption_rows(hass, _hours(start, end)[first_offset:])
+    provider = make_provider(hass, "abcd")
+
+    assert (await provider(start, end) is not None) is covered
+
+
+@pytest.mark.parametrize(("last_offset", "covered"), [(3, True), (4, False)])
+async def test_provider_last_row_must_start_at_or_after_end_minus_three_hours(
+    hass, madrid_tz, last_offset, covered
+):
+    """El último inicio de hora es ``end - last_offset`` horas."""
+    start = datetime(2026, 9, 1, tzinfo=MADRID)
+    end = datetime(2026, 10, 1, tzinfo=MADRID)
+    moments = _hours(start, end)
+    await _consumption_rows(hass, moments[: len(moments) - (last_offset - 1)])
+    provider = make_provider(hass, "abcd")
+
+    assert (await provider(start, end) is not None) is covered
