@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -41,6 +42,9 @@ from .matching import InvoiceRow, Thresholds, Totals, TotalsProvider, match_cont
 from .storage import InvoiceStore, StoredInvoice, build_stored
 
 _LOGGER = logging.getLogger(__name__)
+
+# R18: números de factura que se pueden usar como nombre de fichero.
+_SAFE_NUMBER = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 type CurenergiaConfigEntry = ConfigEntry[CurenergiaCoordinator]
 
@@ -88,9 +92,25 @@ async def _no_totals(start: datetime, end: datetime) -> Totals | None:
     return None
 
 
-def _save_pdf(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+class _UnsafePathError(Exception):
+    """La ruta del PDF saldría de la carpeta de PDF."""
+
+
+def _save_pdf(folder: Path, name: str, data: bytes) -> None:
+    """Guarda ``data`` como ``folder/name`` sin salir de ``folder`` ni sobrescribir.
+
+    Si el fichero ya existe, se da por guardado y no se toca.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    root = folder.resolve()
+    path = (root / name).resolve()
+    if path.parent != root:
+        raise _UnsafePathError
+    try:
+        with path.open("xb") as file:
+            file.write(data)
+    except FileExistsError:
+        return
 
 
 class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
@@ -193,6 +213,16 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 _LOGGER.debug("UID %s: unsupported invoice type", message.uid)
                 unsupported = True
                 continue
+            except Exception as err:  # noqa: BLE001
+                # R17: como ``InvoiceReadError``. Ni mensaje ni traza: podrían
+                # llevar texto de la factura.
+                _LOGGER.warning(
+                    "UID %s: unexpected error reading an invoice PDF (%s)",
+                    message.uid,
+                    type(err).__name__,
+                )
+                failed = True
+                continue
 
             stored = build_stored(invoice, message.email_total)
             if not self.store.add(stored):
@@ -214,10 +244,25 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
             mail.unsupported.add(message.uid)
 
     async def _async_save_pdf(self, uid: int, number: str, pdf: bytes) -> None:
-        """Guarda el PDF de una factura nueva (opción ``save_pdfs``)."""
-        path = Path(self.hass.config.path(DOMAIN, f"{number}.pdf"))
+        """Guarda el PDF de una factura nueva (opción ``save_pdfs``).
+
+        R18: el número sale del texto del PDF y no es de fiar.
+        """
+        if not _SAFE_NUMBER.fullmatch(number):
+            _LOGGER.warning(
+                "UID %s: the invoice number is not a safe file name; PDF not saved",
+                uid,
+            )
+            return
+        folder = Path(self.hass.config.path(DOMAIN))
         try:
-            await self.hass.async_add_executor_job(_save_pdf, path, pdf)
+            await self.hass.async_add_executor_job(
+                _save_pdf, folder, f"{number}.pdf", pdf
+            )
+        except _UnsafePathError:
+            _LOGGER.warning(
+                "UID %s: the PDF path leaves the PDF folder; PDF not saved", uid
+            )
         except OSError as err:
             # El mensaje de ``OSError`` lleva la ruta (con el número de factura).
             _LOGGER.warning(

@@ -164,6 +164,44 @@ async def test_parse_error_recorded_and_retried_on_new_version(
     assert coordinator.data.unreadable_emails == 1
 
 
+async def test_unexpected_parser_error_recorded_as_failed(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, caplog
+):
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    mailbox.add(4, (b"weird", RuntimeError(f"SECRET page text {elec.number}")))
+    mailbox.add(5, (b"good", elec))
+
+    with caplog.at_level(logging.DEBUG):
+        coordinator = await _setup(hass)
+
+    # El refresco sigue con el resto de correos (R17).
+    assert coordinator.last_update_success is True
+    mail = coordinator.store.mail
+    assert mail.failed == {4: __version__}
+    assert mail.seen == {5}
+    assert list(coordinator.store.invoices) == [elec.number]
+    assert coordinator.data.unreadable_emails == 1
+    records = [
+        r for r in caplog.records if r.name.startswith("custom_components.curenergia")
+    ]
+    warning = [r for r in records if "UID 4" in r.getMessage()]
+    assert len(warning) == 1
+    assert warning[0].levelno == logging.WARNING
+    assert "RuntimeError" in warning[0].getMessage()
+    assert warning[0].exc_info is None
+    log = integration_log(caplog)
+    assert "SECRET" not in log
+    assert elec.number not in log
+
+    # Se reintenta solo con otra versión de la librería.
+    await coordinator.async_refresh()
+    assert mailbox.parsed.count(b"weird") == 1
+    with patch(VERSION_ATTR, "9.9.9"):
+        await coordinator.async_refresh()
+    assert mailbox.parsed.count(b"weird") == 2
+    assert coordinator.store.mail.failed == {4: "9.9.9"}
+
+
 async def test_unsupported_not_retried(hass: HomeAssistant, mailbox: FakeMailbox):
     mailbox.add(1, (b"credit-note", UnsupportedInvoiceError("abono")))
 
@@ -340,6 +378,69 @@ async def test_save_pdfs_error_logged_without_data(
     assert "UID 7" in log
     assert elec.number not in log
     assert str(tmp_path) not in log
+
+
+async def test_save_pdfs_rejects_unsafe_number(
+    hass: HomeAssistant, mailbox: FakeMailbox, make_invoice, tmp_path, caplog
+):
+    config = tmp_path / "config"
+    config.mkdir()
+    hass.config.config_dir = str(config)
+    evil = make_invoice(estimated=False, number="../evil")
+    long = make_invoice(estimated=False, number="A" * 65, contract="CT-2")
+    mailbox.add(8, (b"%PDF-evil", evil))
+    mailbox.add(9, (b"%PDF-long", long))
+
+    with caplog.at_level(logging.WARNING):
+        coordinator = await _setup(hass, save_pdfs=True)
+
+    # Las facturas se guardan en el Store; los PDF no se escriben en ningún sitio.
+    assert set(coordinator.store.invoices) == {"../evil", "A" * 65}
+    assert [p for p in tmp_path.rglob("*") if p.is_file()] == []
+    log = integration_log(caplog)
+    assert "UID 8" in log
+    assert "UID 9" in log
+    assert "evil" not in log
+    assert "A" * 65 not in log
+
+
+async def test_save_pdfs_never_overwrites(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, tmp_path, caplog
+):
+    hass.config.config_dir = str(tmp_path)
+    folder = tmp_path / "curenergia"
+    folder.mkdir()
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    (folder / f"{elec.number}.pdf").write_bytes(b"original")
+    mailbox.add(1, (b"%PDF-luz", elec))
+
+    with caplog.at_level(logging.WARNING):
+        coordinator = await _setup(hass, save_pdfs=True)
+
+    assert list(coordinator.store.invoices) == [elec.number]
+    assert (folder / f"{elec.number}.pdf").read_bytes() == b"original"
+    assert "UID 1" not in integration_log(caplog)
+
+
+async def test_save_pdfs_refuses_symlink_out_of_folder(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, tmp_path, caplog
+):
+    hass.config.config_dir = str(tmp_path)
+    folder = tmp_path / "curenergia"
+    folder.mkdir()
+    outside = tmp_path / "outside.pdf"
+    outside.write_bytes(b"outside")
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    (folder / f"{elec.number}.pdf").symlink_to(outside)
+    mailbox.add(3, (b"%PDF-luz", elec))
+
+    with caplog.at_level(logging.WARNING):
+        await _setup(hass, save_pdfs=True)
+
+    assert outside.read_bytes() == b"outside"
+    log = integration_log(caplog)
+    assert "UID 3" in log
+    assert elec.number not in log
 
 
 async def test_unreadable_invoice_logged_without_data(
