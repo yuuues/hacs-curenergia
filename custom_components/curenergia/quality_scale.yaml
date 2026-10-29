@@ -17,9 +17,7 @@ rules:
     comment: config_flow.py is tested at 100 % (checked in CI).
   config-flow:
     status: done
-  dependency-transparency:
-    status: todo
-    comment: pycurenergia not yet published on PyPI
+  dependency-transparency: done
   docs-actions:
     status: exempt
     comment: no service actions; a button entity is used
