@@ -257,3 +257,61 @@ def test_default_factory_uses_ha_ssl_context_and_timeout(
     assert args == ("imap.test", 993)
     assert isinstance(kwargs["ssl_context"], ssl.SSLContext)
     assert kwargs["timeout"] == 30
+
+
+def test_login_abort_is_connection_error_not_auth_error() -> None:
+    fake = make_fake()
+
+    def boom(*args: object, **kwargs: object) -> None:
+        raise imaplib.IMAP4.abort("socket error: EOF")
+
+    fake.login = boom  # type: ignore[method-assign]
+    with pytest.raises(MailConnectionError) as err:
+        make_client(fake).check_login()
+    assert not isinstance(err.value, MailAuthError)
+    assert "usuario-secreto" not in str(err.value)
+    assert fake.logged_out
+
+
+def test_login_oserror_is_connection_error() -> None:
+    fake = make_fake()
+
+    def boom(*args: object, **kwargs: object) -> None:
+        raise ssl.SSLError("reset")
+
+    fake.login = boom  # type: ignore[method-assign]
+    with pytest.raises(MailConnectionError):
+        make_client(fake).check_login()
+    assert fake.logged_out
+
+
+def test_fetch_falls_back_to_html_when_plain_has_no_total() -> None:
+    raw = build_message(plain="Hola", html=HTML, pdfs=(FAKE_PDF,))
+    fake = FakeIMAP({"INBOX": FakeFolder(3, {1: raw})})
+    result = make_client(fake).fetch("INBOX", [], None)
+    assert result.messages[0].email_total == Decimal("1058.40")
+
+
+def test_list_folders_survives_malformed_utf7_name() -> None:
+    fake = FakeIMAP({"INBOX": FakeFolder(1), "Mal&AA-": FakeFolder(1)})
+    assert make_client(fake).list_folders() == ["INBOX", "Mal&AA-"]
+
+
+def test_list_folders_drops_names_with_line_breaks() -> None:
+    fake = FakeIMAP({"INBOX": FakeFolder(1), "A&AAo-B": FakeFolder(1)})
+    assert make_client(fake).list_folders() == ["INBOX"]
+
+
+def test_fetch_rejects_folder_with_line_break() -> None:
+    fake = make_fake()
+    with pytest.raises(MailConnectionError):
+        make_client(fake).fetch("A\r\nB", [], None)
+    assert fake.selected is None
+    assert fake.logged_out
+
+
+def test_fetch_escapes_quote_and_backslash_in_select_name() -> None:
+    name = 'A"B' + chr(92) + "C"
+    fake = FakeIMAP({name: FakeFolder(4, {})})
+    make_client(fake).fetch(name, [], None)
+    assert fake.selected == ('"A' + chr(92) + '"B' + chr(92) * 2 + 'C"', True)

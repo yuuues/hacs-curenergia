@@ -28,3 +28,9 @@ def test_decode_ampersand_only() -> None:
 
 def test_decode_unterminated_sequence_is_left_untouched() -> None:
     assert decode("abc&AO0") == "abc&AO0"
+
+
+def test_slash_in_base64_is_written_as_comma() -> None:
+    # U+3FFF -> bytes 3F FF -> base64 "P/8=" -> "&P,8-"
+    assert encode("㿿") == "&P,8-"
+    assert decode("&P,8-") == "㿿"

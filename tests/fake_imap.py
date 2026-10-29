@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import imaplib
+import re
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 
@@ -85,7 +86,9 @@ class FakeIMAP:
         self, mailbox: str = "INBOX", readonly: bool = False
     ) -> tuple[str, list[bytes]]:
         self.selected = (mailbox, readonly)
-        name = mailbox[1:-1] if mailbox.startswith('"') else mailbox
+        name = mailbox
+        if mailbox.startswith('"'):
+            name = re.sub(r"\\(.)", r"\1", mailbox[1:-1])
         folder = self.folders.get(name)
         if folder is None or folder.noselect:
             return "NO", [b"[NONEXISTENT] Unknown Mailbox"]

@@ -118,7 +118,7 @@ def _message_text(msg: EmailMessage, subtype: str) -> str | None:
             continue
         try:
             return str(part.get_content())
-        except LookupError, UnicodeError, KeyError:
+        except (LookupError, UnicodeError, KeyError):
             payload = part.get_payload(decode=True)
             if isinstance(payload, bytes):
                 return payload.decode("utf-8", errors="replace")
@@ -144,10 +144,12 @@ def _parse_message(uid: int, raw: bytes) -> MailMessage | None:
         payload = part.get_payload(decode=True)
         if isinstance(payload, bytes):
             pdfs.append(payload)
-    body = _message_text(msg, "plain")
-    if body is None:
-        body = _message_text(msg, "html")
-    total = parse_email_total(body) if body is not None else None
+    total = None
+    for subtype in ("plain", "html"):
+        body = _message_text(msg, subtype)
+        total = parse_email_total(body) if body is not None else None
+        if total is not None:
+            break
     return MailMessage(uid=uid, email_total=total, pdfs=tuple(pdfs))
 
 
@@ -191,12 +193,12 @@ class MailClient:
         try:
             try:
                 conn.login(self._username, self._password)
-            except imaplib.IMAP4.error:
-                raise MailAuthError("IMAP login rejected") from None
-            except OSError as err:
+            except (imaplib.IMAP4.abort, OSError) as err:
                 raise MailConnectionError(
                     f"IMAP connection failed during login ({type(err).__name__})"
                 ) from None
+            except imaplib.IMAP4.error:
+                raise MailAuthError("IMAP login rejected") from None
             try:
                 yield conn
             except (OSError, ssl.SSLError, imaplib.IMAP4.error) as err:
@@ -206,7 +208,7 @@ class MailClient:
         finally:
             try:
                 conn.logout()
-            except OSError, imaplib.IMAP4.error:
+            except (OSError, imaplib.IMAP4.error):
                 pass
 
     def check_login(self) -> None:
@@ -230,7 +232,14 @@ class MailClient:
                 flags, wire = parsed
                 if "\\noselect" in flags.lower():
                     continue
-                names.append(imap_utf7.decode(wire))
+                try:
+                    name = imap_utf7.decode(wire)
+                except ValueError:
+                    # UTF-7 mal formado: se usa el nombre tal cual.
+                    name = wire
+                if "\r" in name or "\n" in name:
+                    continue  # no se puede seleccionar con seguridad
+                names.append(name)
             return sorted(names)
 
     def fetch(
@@ -244,14 +253,17 @@ class MailClient:
         Si ``uidvalidity`` no coincide con el del servidor, ``skip_uids`` se ignora.
         """
         with self._session() as conn:
+            if "\r" in folder or "\n" in folder:
+                raise MailConnectionError("Invalid IMAP folder name")
             wire = imap_utf7.encode(folder)
-            status, _ = conn.select(f'"{wire}"', readonly=True)
+            quoted = wire.replace("\\", "\\\\").replace('"', '\\"')
+            status, _ = conn.select(f'"{quoted}"', readonly=True)
             if status != "OK":
                 raise MailConnectionError("Cannot select the IMAP folder")
             _, validity = conn.response("UIDVALIDITY")
             try:
                 server_validity = int(validity[0])
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 raise MailConnectionError("IMAP server gave no UIDVALIDITY") from None
 
             status, found = conn.uid("SEARCH", None, "FROM", f'"{SENDER}"')
