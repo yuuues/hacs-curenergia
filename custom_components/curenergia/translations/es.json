@@ -1,0 +1,87 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Buzón de CurEnergía",
+        "description": "Introduce la cuenta IMAP que recibe tus facturas de CurEnergía. Usa una contraseña de aplicación, no tu contraseña habitual. Una contraseña de aplicación da acceso a todo el buzón, así que créala solo para esto y revócala si dejas de usar la integración. Consulta el [README](https://github.com/yuuues/hacs-curenergia#readme) para ver los pasos.",
+        "data": {
+          "host": "Servidor IMAP",
+          "port": "Puerto",
+          "username": "Usuario",
+          "password": "Contraseña de aplicación"
+        },
+        "data_description": {
+          "host": "Dirección del servidor IMAP, por ejemplo imap.gmail.com.",
+          "port": "Puerto SSL del servidor IMAP. Normalmente 993.",
+          "username": "Normalmente tu dirección de correo completa.",
+          "password": "Contraseña de aplicación del buzón."
+        }
+      },
+      "folder": {
+        "title": "Carpeta de facturas",
+        "description": "Elige la carpeta donde están los correos de CurEnergía. Solo se leen los correos del remitente de CurEnergía.",
+        "data": {
+          "folder": "Carpeta"
+        },
+        "data_description": {
+          "folder": "Carpeta del buzón donde buscar las facturas."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reautenticar CurEnergía",
+        "description": "El buzón ha rechazado la contraseña guardada. Introduce una contraseña de aplicación nueva.",
+        "data": {
+          "password": "Contraseña de aplicación"
+        },
+        "data_description": {
+          "password": "Nueva contraseña de aplicación del buzón."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "El buzón ha rechazado el usuario o la contraseña.",
+      "cannot_connect": "No se ha podido conectar con el buzón.",
+      "unknown": "Error inesperado."
+    },
+    "abort": {
+      "already_configured": "Este buzón ya está configurado.",
+      "reauth_successful": "La reautenticación se ha completado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de CurEnergía",
+        "description": "Al cambiar la carpeta se descarta el estado guardado del buzón y la nueva carpeta se lee desde cero.",
+        "data": {
+          "folder": "Carpeta",
+          "scan_hours": "Intervalo de revisión (horas)",
+          "kwh_threshold": "Umbral de kWh",
+          "eur_threshold_pct": "Umbral de importe (%)",
+          "show_panel": "Mostrar panel lateral",
+          "save_pdfs": "Guardar los PDF de las facturas",
+          "edata_entry": "Entrada de e-data"
+        },
+        "data_description": {
+          "folder": "Carpeta del buzón donde buscar las facturas.",
+          "scan_hours": "Cada cuánto se revisa el buzón, de 1 a 24 horas.",
+          "kwh_threshold": "Se marca una factura cuando su consumo difiere del de e-data en más de estos kWh.",
+          "eur_threshold_pct": "Se marca una factura cuando su importe difiere del de e-data en más de este porcentaje.",
+          "show_panel": "Muestra el panel de CurEnergía en la barra lateral.",
+          "save_pdfs": "Conserva una copia del PDF de cada factura.",
+          "edata_entry": "Entrada de e-data con la que comparar. En automático se vincula por punto de suministro (CUPS)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se han podido leer las carpetas del buzón. Escribe el nombre de la carpeta."
+    }
+  },
+  "selector": {
+    "edata_entry": {
+      "options": {
+        "auto": "Automático"
+      }
+    }
+  }
+}
