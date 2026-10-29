@@ -207,6 +207,63 @@ async def test_failure_in_second_batch_keeps_first_batch(
     assert set(store.invoices) == {first, last}
 
 
+PARTIAL_READ = "The mailbox was not fully read"
+
+
+async def test_batch_cap_stops_and_resumes_on_next_refresh(
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, caplog
+):
+    for uid in range(1, 46):
+        mailbox.add(uid)
+    entry = make_entry()
+    key = STORE_KEY.format(entry.entry_id)
+
+    with (
+        patch("custom_components.curenergia.coordinator.MAX_BATCHES_PER_REFRESH", 2),
+        caplog.at_level(logging.WARNING),
+    ):
+        await setup_entry(hass, entry)
+
+        # R31: dos lotes de 20 y se para; los UID 41..45 no se dan por vistos.
+        assert len(mailbox.calls) == 2
+        coordinator = entry.runtime_data
+        assert coordinator.store.mail.seen == set(range(1, 41))
+        assert hass_storage[key]["data"]["mail"]["seen"] == list(range(1, 41))
+        assert coordinator.data.mail_error is False
+        records = [r for r in caplog.records if PARTIAL_READ in r.getMessage()]
+        assert len(records) == 1
+        assert records[0].levelno == logging.WARNING
+        assert records[0].args in ((), None)
+
+        await coordinator.async_refresh()
+
+    assert mailbox.calls[-1] == ("INBOX", frozenset(range(1, 41)), 1)
+    assert coordinator.store.mail.seen == set(range(1, 46))
+
+
+async def test_batch_without_progress_stops_the_loop(
+    hass: HomeAssistant, mailbox: FakeMailbox, caplog
+):
+    for uid in range(1, 4):
+        mailbox.add(uid)
+    real_fetch = mailbox.fetch
+
+    def stuck_fetch(*args, **kwargs):
+        # Servidor que no deja avanzar: dice que quedan correos pero no da ninguno.
+        result = real_fetch(*args, **kwargs)
+        return replace(result, messages=(), fetched=frozenset(), remaining=True)
+
+    mailbox.fetch = stuck_fetch  # type: ignore[method-assign]
+    with caplog.at_level(logging.WARNING):
+        coordinator = await _setup(hass)
+
+    assert len(mailbox.calls) == 1
+    # Sin R16: los UID no descargados no se marcan como vistos.
+    assert coordinator.store.mail.seen == set()
+    records = [r for r in caplog.records if PARTIAL_READ in r.getMessage()]
+    assert len(records) == 1
+
+
 async def test_oversized_message_counted_as_unsupported(
     hass: HomeAssistant, mailbox: FakeMailbox, caplog
 ):

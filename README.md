@@ -214,7 +214,8 @@ sensores no pasan a «no disponible». Un login rechazado sí inicia la reautent
 
 La primera vez se descargan todos los correos de facturas de la carpeta, **por
 lotes de 20**; tras cada lote se guarda lo leído, así que si la conexión se corta
-la siguiente revisión sigue donde se quedó. Los correos de **más de 15 MB** no se
+la siguiente revisión sigue donde se quedó. En cada revisión se leen como mucho
+unos 1000 correos; el resto, en las siguientes. Los correos de **más de 15 MB** no se
 descargan: se cuentan como no soportados (`unsupported_emails`) y no se reintentan.
 
 ### PDFs que no se pueden leer

@@ -49,6 +49,9 @@ from .storage import InvoiceStore, StoredInvoice, build_stored
 
 _LOGGER = logging.getLogger(__name__)
 
+# R31: lotes de correo como mucho por refresco (unos 1000 correos).
+MAX_BATCHES_PER_REFRESH = 50
+
 # R18: números de factura que se pueden usar como nombre de fichero.
 _SAFE_NUMBER = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
@@ -194,8 +197,12 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         )
         save_pdfs = options.get(CONF_SAVE_PDFS, DEFAULT_SAVE_PDFS)
         # R26: por lotes, guardando el Store tras cada uno; si falla un lote,
-        # lo ya guardado se queda.
+        # lo ya guardado se queda. R31: como mucho MAX_BATCHES_PER_REFRESH
+        # lotes, y se para si un lote no avanza; el resto, en el siguiente sondeo.
+        complete = False
+        batch = 0
         while True:
+            batch += 1
             mail = self.store.mail
             retry_later = {
                 uid for uid, version in mail.failed.items() if version == LIB_VERSION
@@ -213,25 +220,36 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 return await self._async_mail_failed(err)
 
             await self._async_ingest_batch(result, folder, save_pdfs)
-            if not (result.remaining and result.fetched):
+            if not result.remaining:
+                complete = True
+                break
+            if not result.fetched or batch == MAX_BATCHES_PER_REFRESH:
                 break
             await self.store.async_save()
 
-        mail = self.store.mail
-        # Se olvidan los UID que ya no están en la carpeta.
-        mail.failed = {
-            uid: version
-            for uid, version in mail.failed.items()
-            if uid in result.all_uids
-        }
-        mail.unsupported &= result.all_uids
-        # R16: el resto de UID de la carpeta quedan vistos.
-        mail.seen = set(result.all_uids - mail.failed.keys() - mail.unsupported)
+        if complete:
+            self._forget_and_mark_seen(result.all_uids)
+        else:
+            # Sin R16: los UID que faltan no se pueden dar por vistos.
+            _LOGGER.warning(
+                "The mailbox was not fully read; the rest will be read on the "
+                "next check"
+            )
         await self.store.async_save()
 
         return await self._async_build_data(
             mail_error=False, last_mail_check=dt_util.utcnow()
         )
+
+    def _forget_and_mark_seen(self, all_uids: frozenset[int]) -> None:
+        """Tras leer todo el buzón: olvida los UID que ya no están en la
+        carpeta y marca el resto como vistos (R16)."""
+        mail = self.store.mail
+        mail.failed = {
+            uid: version for uid, version in mail.failed.items() if uid in all_uids
+        }
+        mail.unsupported &= all_uids
+        mail.seen = set(all_uids - mail.failed.keys() - mail.unsupported)
 
     async def _async_mail_failed(self, err: Exception) -> CoordinatorData:
         """Fallo al leer el buzón: se sirven las facturas guardadas (D5, R21).
