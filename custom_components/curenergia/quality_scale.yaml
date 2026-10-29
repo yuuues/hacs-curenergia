@@ -1,0 +1,56 @@
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: no service actions; a button entity is used
+  appropriate-polling:
+    status: done
+    comment: The mailbox is polled every 6 hours by default (1 to 24 h, configurable).
+  brands:
+    status: todo
+    comment: local brand/ folder added in plan 3
+  common-modules:
+    status: done
+    comment: Coordinator in coordinator.py and base entity in entity.py.
+  config-flow-test-coverage:
+    status: done
+    comment: config_flow.py is tested at 100 % (checked in CI).
+  config-flow:
+    status: done
+  dependency-transparency:
+    status: done
+    comment: pycurenergia is open source (lib/ in this repository) and CI publishes it to PyPI from a tagged release.
+  docs-actions:
+    status: exempt
+    comment: no service actions; a button entity is used
+  docs-high-level-description:
+    status: done
+  docs-installation-instructions:
+    status: done
+  docs-removal-instructions:
+    status: done
+  entity-event-setup:
+    status: done
+    comment: Entities use the update coordinator and do not subscribe to events by hand.
+  entity-unique-id:
+    status: done
+  has-entity-name:
+    status: done
+  runtime-data:
+    status: done
+  test-before-configure:
+    status: done
+    comment: The IMAP login is tested before the entry is created.
+  test-before-setup:
+    status: done
+    comment: The first refresh raises ConfigEntryAuthFailed or ConfigEntryNotReady.
+  unique-config-entry:
+    status: done
+    comment: The unique ID is username@server in lower case.
+
+  # Beyond Bronze (voluntary)
+  reauthentication-flow:
+    status: done
+  diagnostics:
+    status: done
+    comment: Credentials, supply point, contract and invoice numbers are redacted.

@@ -3,8 +3,8 @@
 # porque Home Assistant no corre en Windows.
 #
 #   scripts/ha-test.sh [args de pytest]
-#   scripts/ha-test.sh --ruff
-#   scripts/ha-test.sh --lock
+#   scripts/ha-test.sh --ruff [args de ruff check, p. ej. --fix]
+#   scripts/ha-test.sh --lock [args de uv lock]
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -13,11 +13,11 @@ IMAGE="ghcr.io/astral-sh/uv:python3.14-trixie-slim"
 case "${1:-}" in
     --ruff)
         shift
-        CMD=(sh -c "uv run --locked --group ha ruff check custom_components tests && uv run --locked --group ha ruff format --check custom_components tests")
+        CMD=(sh -c 'uv run --locked --group ha ruff check custom_components tests "$@" && uv run --locked --group ha ruff format --check custom_components tests' sh "$@")
         ;;
     --lock)
         shift
-        CMD=(uv lock)
+        CMD=(uv lock "$@")
         ;;
     *)
         CMD=(uv run --locked --group ha pytest "$@")

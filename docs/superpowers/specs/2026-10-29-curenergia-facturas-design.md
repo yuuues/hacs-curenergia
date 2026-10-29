@@ -4,6 +4,8 @@ Fecha: 2026-10-29 · Estado: borrador pendiente de aprobación
 
 Convención: **(usuario)** = decidido por el usuario; **(mío)** = decisión tomada durante el diseño que el usuario puede revisar; **(builder)** = se deja a quien construya.
 
+Las decisiones de planificación D1–D8 están en la cabecera del plan de implementación (`docs/superpowers/plans/2026-10-29-curenergia-integracion-ha.md`); el comportamiento que resulta de ellas y de los dictámenes tomados durante la ejecución está descrito en el `README.md`.
+
 ## 1. Intención y porqué
 
 El usuario es cliente de CurEnergía (comercializadora de referencia del grupo Iberdrola) con un contrato de luz (PVPC, peaje 2.0TD) y otro de gas (TUR.1). Ya tiene en Home Assistant la integración **e-data**, que descarga de Datadis el consumo horario de luz.
@@ -145,9 +147,11 @@ Los intereses de demora ("Otros") son un concepto propio, no se mezclan con la e
 
 ### 8.2 Modelo y comprobación interna
 
-`Invoice` (tipado, inmutable): tipo (luz/gas), nº de factura, nº de contrato, CUPS, fecha de emisión, periodo inicio/fin, lectura estimada (bool), kWh total, kWh P1/P2/P3 (luz), m³ (gas), lista de conceptos (nombre normalizado + importe), base imponible, tipo de IVA, IVA, total, y para luz la potencia contratada y la tarifa.
+`Invoice` (tipado, inmutable): tipo (luz/gas), nº de factura, nº de contrato, CUPS, fecha de emisión, periodo inicio/fin, lectura estimada (bool), kWh total, kWh P1/P2/P3 (luz), m³ (gas), lista de conceptos (nombre normalizado + importe), base imponible, tipo de IVA, IVA, total, y para luz la potencia contratada y la tarifa. Incluye también `energy_price_kwh` (precio del término de energía en €/kWh, `None` si la factura no lo indica) **(mío)**.
 
 Comprobación interna **(mío)**: suma de conceptos = total (±0,01 €), IVA = tipo leído × base (±0,01 €), P1+P2+P3 = total kWh, y total = importe del cuerpo del correo cuando esté disponible. Si falla, la factura se guarda con estado **"no se pudo leer bien"**. Ese estado es distinto de "no cuadra" y significa que el lector tiene un fallo, no CurEnergía. Se registra un aviso en el log sin datos personales.
+
+Errores de la librería **(mío)**: `InvoiceParseError` (no se pudo leer un campo), `UnsupportedInvoiceError` (el PDF no es un tipo soportado, por ejemplo una rectificativa o un abono) e `InvoiceReadError` (el PDF está dañado, cifrado, vacío o es demasiado grande; su mensaje nunca lleva texto del PDF). Sin número de factura no se puede guardar una fila, así que la integración guarda el UID del correo junto con la versión de la librería, reintenta ese correo cuando la versión cambia y lo cuenta en el resumen; los no soportados se guardan aparte y no se reintentan.
 
 ### 8.3 Almacenamiento
 
@@ -163,25 +167,29 @@ Se leen las **estadísticas largas** del recorder que publica e-data **(mío; no
 - consumo: `edata:<id>_consumption`, `edata:<id>_p1_consumption`, `_p2_consumption`, `_p3_consumption`
 - coste: `edata:<id>_power_cost`, `edata:<id>_energy_cost` (solo existen si el usuario tiene activada la facturación en e-data; para PVPC, e-data usa precios horarios)
 
-Se suman las estadísticas horarias (`sum`/`change`) en la ventana de la factura.
+Se suman los valores horarios (`state`, que en e-data es el valor de esa hora) en la ventana de la factura **(mío)**. Cada fila de e-data lleva como `start` el **inicio** de la hora.
 
 ### 9.2 Vínculo factura ↔ e-data
 
-- Automático por **CUPS**: buscar la entrada de configuración de e-data cuyo CUPS coincida con el de la factura y obtener `<id>` igual que lo construye e-data **(builder: verificar en el código de e-data cómo se forma el `<id>`)**.
-- Si no se encuentra, en opciones se puede elegir la entrada de e-data a mano.
+- Automático por **CUPS**: buscar la entrada de configuración de e-data cuyo CUPS coincida con el de la factura y obtener `<id>` igual que lo construye e-data. Verificado en `uvejota/homeassistant-edata` 2026.10.4 (dominio `edata`): la entrada guarda `data["cups"]` (CUPS completo, que además es su `unique_id` en mayúsculas) y `data["scups"]` (sufijo corto), y el `<id>` de las estadísticas es `data["scups"].lower()`.
+- Si no se encuentra, en opciones se puede elegir la entrada de e-data a mano. Ese vínculo manual solo se aplica cuando hay un único CUPS de luz sin pareja automática: con dos o más, ninguno se vincula, para no comparar dos contadores con el mismo e-data **(mío)**.
 - Sin e-data, la integración funciona igual y muestra las facturas sin casar.
 
 ### 9.3 Ventana temporal
 
 Se usa el periodo **del PDF**, no el de la lista web, que muestra otro periodo para la misma factura. **(builder)**: comprobar con los datos reales del usuario si el periodo `D1 a D2` corresponde a `[D1 00:00, D2+1 00:00)` o a otra frontera (las lecturas se hacen en una fecha concreta), y fijar la regla que haga cuadrar las facturas con lectura real. El builder no tiene acceso a la instancia de HA del usuario. Por eso **(mío)** la regla por defecto es `[D1 00:00, D2+1 00:00)` (hora local de España), y los diagnósticos de la integración incluyen, para cada factura con lectura real, la Δ kWh con las fronteras alternativas (un día antes y un día después en cada extremo). El usuario instala, descarga los diagnósticos y con eso se fija la regla definitiva antes de la primera release pública. Si Datadis no cubre todas las horas de la ventana, la factura queda como **"sin datos suficientes"** y no se marca.
 
+**Cobertura de Datadis (mío):** la ventana se considera cubierta si `edata:<id>_consumption` tiene al menos `horas − 2` filas horarias, la primera empieza antes de `inicio + 2 h` y la última empieza en `fin − 3 h` o después. Las horas se cuentan como horas reales transcurridas, de modo que el cambio de hora (745 h en octubre, 743 h en marzo) no produce un `sin_datos` falso. Si no se cumple, el estado es `sin_datos`.
+
 ### 9.4 Reglas de marcado **(usuario aprobó estos valores por defecto)**
 
 - **kWh:** se marca si el total o algún tramo P1/P2/P3 difiere en **más de 1 kWh**.
-- **€:** se compara solo **potencia + energía** de la factura (`Por potencia contratada` + `Por energía consumida`) con `power_cost` + `energy_cost` de e-data. Se marca si difieren en **más de un 2 %**. El resto de conceptos (bono social, impuestos, alquiler, intereses, IVA) solo se muestran **(usuario aceptó)**. **(builder)**: verificar si los costes de e-data van con o sin impuesto eléctrico/IVA y comparar lo equivalente.
+- **€:** se compara solo **potencia + energía** de la factura (`Por potencia contratada` + `Por energía consumida`) con `power_cost` + `energy_cost` de e-data. Se marca si difieren en **más de un 2 %**. El resto de conceptos (bono social, impuestos, alquiler, intereses, IVA) solo se muestran **(usuario aceptó)**. Verificado: `power_term` y `energy_term` de e-data **incluyen el impuesto eléctrico y el IVA** con sus fórmulas por defecto (`electricity_tax * iva_tax * …`, con `electricity_tax = 1,0511300560` e `iva_tax = 1,21`). Por eso la factura se lleva a la misma base **(mío)**: `factura_€ = (potencia + energía) × (1 + impuesto_eléctrico / (potencia + energía + bono_social)) × (1 + IVA / 100)`, y se compara con `power_cost + energy_cost`. Δ € = factura_€ − e-data_€ y Δ % = Δ € / e-data_€ × 100. Si el usuario cambió las fórmulas de e-data, la comparación pierde sentido; se documenta en el README.
 - Si no hay costes de e-data: la columna en € muestra "—" y no cuenta para el marcado.
 - **Lecturas estimadas:** nunca se marcan como discrepancia, solo llevan la etiqueta "estimada", y su diferencia se muestra en gris.
-- **Factura real después de estimadas (ventana combinada) (usuario):** una factura con lectura real que llega tras una o más estimadas consecutivas del mismo contrato regulariza lo estimado. Por eso no se compara solo con su propio periodo. Se toma la ventana desde el inicio de la primera estimada del grupo hasta el final de la real, y se compara la suma de lo facturado (kWh total, P1/P2/P3, y potencia + energía en €) con Datadis/e-data en esa ventana, con los mismos umbrales. El estado resultante es el de la factura real. Las estimadas del grupo mantienen la etiqueta "estimada" y quedan vinculadas al grupo. En la tabla, la fila de la factura real indica que la comparación abarca N facturas, y el desplegable muestra cuáles. Si la estimada más antigua del grupo empieza antes de la primera factura disponible, o Datadis no cubre la ventana, el estado es `sin_datos`. Mientras la última factura sea estimada, solo lleva la etiqueta, a la espera de la real.
+- **Factura real después de estimadas (ventana combinada) (usuario):** una factura con lectura real que llega tras una o más estimadas consecutivas del mismo contrato regulariza lo estimado. Por eso no se compara solo con su propio periodo. Se toma la ventana desde el inicio de la primera estimada del grupo hasta el final de la real, y se compara la suma de lo facturado (kWh total, P1/P2/P3, y potencia + energía en €) con Datadis/e-data en esa ventana, con los mismos umbrales. El estado resultante es el de la factura real. Las estimadas del grupo mantienen la etiqueta "estimada" y quedan vinculadas al grupo. En la tabla, la fila de la factura real indica que la comparación abarca N facturas, y el desplegable muestra cuáles. Si la estimada más antigua del grupo empieza antes de la primera factura disponible, o Datadis no cubre la ventana, el estado es `sin_datos`. Mientras la última factura sea estimada, solo lleva la etiqueta, a la espera de la real. Reglas añadidas durante la ejecución **(mío)**: el grupo tiene que ser contiguo (cada `period_start` es el día siguiente al `period_end` anterior), y la real queda `sin_datos` si hay un hueco, si el grupo contiene una factura `no_leida` o si la primera estimada es la factura más antigua guardada del contrato, porque no se sabe si había estimadas anteriores.
+- **Factura ilegible dentro de un grupo (R10):** una factura real `no_leida` cierra el grupo pero no se compara con él (la siguiente real empieza un grupo nuevo), y una estimada `no_leida` se une al grupo pendiente y hace que la real que lo cierra quede `sin_datos`.
+- **Hueco antes del grupo (R11):** si la primera estimada del grupo no es contigua con la factura anterior guardada del contrato (falta una factura), la real que lo cierra queda `sin_datos`: la que falta pudo ser también una estimada y una discrepancia falsa es un anti-objetivo (§4).
 - Umbrales configurables en opciones.
 
 Estados de una factura: `ok`, `no_cuadra`, `estimada`, `sin_datos` (sin e-data o fuera del rango de Datadis), `no_leida` (falló la comprobación interna), y `gas` (sin casación) **(mío)**.
@@ -250,4 +258,4 @@ Textos en inglés (obligatorio en `strings.json`) y español en `translations/es
 
 ## 16. Queda al builder
 
-Nombre del paquete en PyPI, versión mínima de HA, nombres de la API websocket y su formato, elección de librería del gráfico, lista final de sensores, logo, y la verificación de los puntos marcados **(builder)** en §9.2, §9.3 y §9.4.
+Nombre del paquete en PyPI, versión mínima de HA, nombres de la API websocket y su formato, elección de librería del gráfico, lista final de sensores, logo, y la verificación de la frontera del periodo (§9.3) con los datos reales del usuario. Los puntos **(builder)** de §9.2 y §9.4 ya están verificados.
