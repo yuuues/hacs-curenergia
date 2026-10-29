@@ -27,7 +27,11 @@ from custom_components.curenergia.const import (
     EDATA_AUTO,
 )
 from custom_components.curenergia.coordinator import CurenergiaCoordinator
-from custom_components.curenergia.mail import FetchResult, MailMessage
+from custom_components.curenergia.mail import (
+    DEFAULT_FETCH_LIMIT,
+    FetchResult,
+    MailMessage,
+)
 from custom_components.curenergia.matching import Totals
 
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "lib" / "tests" / "fixtures"
@@ -95,6 +99,10 @@ class FakeMailbox:
         self.messages: dict[int, MailMessage | None] = {}
         self.pdfs: dict[bytes, Invoice | Exception] = {}
         self.error: Exception | None = None
+        # UID de más de 15 MB: ``MailClient`` no los descarga (R26).
+        self.oversized: set[int] = set()
+        # Se llama con el número de la llamada a ``fetch`` (1, 2…) al empezarla.
+        self.on_fetch: Callable[[int], None] | None = None
         self.calls: list[tuple[str, frozenset[int], int | None]] = []
         self.parsed: list[bytes] = []
         # Doble de la clase ``MailClient`` (lo pone la fixture ``mailbox``).
@@ -114,23 +122,33 @@ class FakeMailbox:
         )
 
     def fetch(
-        self, folder: str, skip_uids: Collection[int], uidvalidity: int | None
+        self,
+        folder: str,
+        skip_uids: Collection[int],
+        uidvalidity: int | None,
+        limit: int = DEFAULT_FETCH_LIMIT,
     ) -> FetchResult:
-        """Imita ``MailClient.fetch`` (con su regla de ``uidvalidity``)."""
+        """Imita ``MailClient.fetch`` (``uidvalidity``, tamaño y lotes)."""
         skip = frozenset(skip_uids)
         self.calls.append((folder, skip, uidvalidity))
+        if self.on_fetch is not None:
+            self.on_fetch(len(self.calls))
         if self.error is not None:
             raise self.error
         if uidvalidity != self.uidvalidity:
             skip = frozenset()
+        new = sorted(set(self.messages) - skip)
+        wanted = [uid for uid in new if uid not in self.oversized]
+        batch = wanted[:limit]
         return FetchResult(
             uidvalidity=self.uidvalidity,
             all_uids=frozenset(self.messages),
             messages=tuple(
-                message
-                for uid, message in sorted(self.messages.items())
-                if message is not None and uid not in skip
+                message for uid in batch if (message := self.messages[uid]) is not None
             ),
+            fetched=frozenset(batch),
+            oversized=frozenset(new) & frozenset(self.oversized),
+            remaining=len(wanted) > len(batch),
         )
 
     def parse(self, data: bytes) -> Invoice:

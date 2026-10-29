@@ -37,7 +37,13 @@ from .const import (
     EDATA_AUTO,
 )
 from .edata import cups_key, edata_entry_cups_key, find_edata_id, make_provider
-from .mail import MailAuthError, MailClient, MailConnectionError, MailMessage
+from .mail import (
+    FetchResult,
+    MailAuthError,
+    MailClient,
+    MailConnectionError,
+    MailMessage,
+)
 from .matching import InvoiceRow, Thresholds, Totals, TotalsProvider, match_contract
 from .storage import InvoiceStore, StoredInvoice, build_stored
 
@@ -182,50 +188,34 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
             self.store.reset_mail()
             self.store.mail.folder = folder
 
-        mail = self.store.mail
-        skip = (
-            mail.seen
-            | mail.unsupported
-            | {uid for uid, version in mail.failed.items() if version == LIB_VERSION}
-        )
         data = self.config_entry.data
         client = MailClient(
             data[CONF_HOST], data[CONF_PORT], data[CONF_USERNAME], data[CONF_PASSWORD]
         )
-        try:
-            result = await self.hass.async_add_executor_job(
-                client.fetch, folder, frozenset(skip), mail.uidvalidity
-            )
-        except MailAuthError as err:
-            raise ConfigEntryAuthFailed("The IMAP server rejected the login") from err
-        except Exception as err:  # noqa: BLE001
-            # R22: un error inesperado cuenta como fallo de conexión. Su mensaje
-            # podría llevar datos, así que solo se registra la clase.
-            reason = (
-                str(err) if isinstance(err, MailConnectionError) else type(err).__name__
-            )
-            if self.data is None and not self.store.invoices:
-                raise UpdateFailed(f"Cannot read the mailbox: {reason}") from None
-            # D5 (y R21 en el primer refresco): se sirven las facturas guardadas.
-            _LOGGER.warning(
-                "Cannot read the mailbox, keeping stored invoices: %s", reason
-            )
-            return await self._async_build_data(
-                mail_error=True,
-                last_mail_check=None
-                if self.data is None
-                else self.data.last_mail_check,
-            )
-
-        if result.uidvalidity != self.store.mail.uidvalidity:
-            # Los UID guardados ya no valen: se olvidan (las facturas se quedan).
-            self.store.reset_mail()
-            self.store.mail.folder = folder
-            self.store.mail.uidvalidity = result.uidvalidity
-
         save_pdfs = options.get(CONF_SAVE_PDFS, DEFAULT_SAVE_PDFS)
-        for message in result.messages:
-            await self._async_ingest(message, save_pdfs)
+        # R26: por lotes, guardando el Store tras cada uno; si falla un lote,
+        # lo ya guardado se queda.
+        while True:
+            mail = self.store.mail
+            retry_later = {
+                uid for uid, version in mail.failed.items() if version == LIB_VERSION
+            }
+            skip = mail.seen | mail.unsupported | retry_later
+            try:
+                result = await self.hass.async_add_executor_job(
+                    client.fetch, folder, frozenset(skip), mail.uidvalidity
+                )
+            except MailAuthError as err:
+                raise ConfigEntryAuthFailed(
+                    "The IMAP server rejected the login"
+                ) from err
+            except Exception as err:  # noqa: BLE001
+                return await self._async_mail_failed(err)
+
+            await self._async_ingest_batch(result, folder, save_pdfs)
+            if not (result.remaining and result.fetched):
+                break
+            await self.store.async_save()
 
         mail = self.store.mail
         # Se olvidan los UID que ya no están en la carpeta.
@@ -242,6 +232,45 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return await self._async_build_data(
             mail_error=False, last_mail_check=dt_util.utcnow()
         )
+
+    async def _async_mail_failed(self, err: Exception) -> CoordinatorData:
+        """Fallo al leer el buzón: se sirven las facturas guardadas (D5, R21).
+
+        Sin facturas guardadas en el primer refresco, lanza ``UpdateFailed``.
+        """
+        # R22: un error inesperado cuenta como fallo de conexión. Su mensaje
+        # podría llevar datos, así que solo se registra la clase.
+        if isinstance(err, MailConnectionError):
+            reason = str(err)
+        else:
+            reason = type(err).__name__
+        if self.data is None and not self.store.invoices:
+            raise UpdateFailed(f"Cannot read the mailbox: {reason}") from None
+        _LOGGER.warning("Cannot read the mailbox, keeping stored invoices: %s", reason)
+        return await self._async_build_data(
+            mail_error=True,
+            last_mail_check=None if self.data is None else self.data.last_mail_check,
+        )
+
+    async def _async_ingest_batch(
+        self, result: FetchResult, folder: str, save_pdfs: bool
+    ) -> None:
+        """Guarda las facturas de un lote y marca sus UID (R26)."""
+        if result.uidvalidity != self.store.mail.uidvalidity:
+            # Los UID guardados ya no valen: se olvidan (las facturas se quedan).
+            self.store.reset_mail()
+            self.store.mail.folder = folder
+            self.store.mail.uidvalidity = result.uidvalidity
+
+        for message in result.messages:
+            await self._async_ingest(message, save_pdfs)
+
+        mail = self.store.mail
+        # Solo los UID de este lote: el resto se marca al acabar (R16).
+        mail.seen |= result.fetched - mail.failed.keys() - mail.unsupported
+        for uid in sorted(result.oversized):
+            _LOGGER.warning("UID %s: the message is larger than 15 MB; skipped", uid)
+        mail.unsupported |= result.oversized
 
     async def _async_ingest(self, message: MailMessage, save_pdfs: bool) -> None:
         """Lee los PDF de un correo y guarda las facturas nuevas."""

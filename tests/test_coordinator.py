@@ -131,6 +131,103 @@ async def test_message_without_pdf_marked_seen(
     assert mailbox.calls[-1] == ("INBOX", frozenset({1, 2}), 1)
 
 
+def _batched_mailbox(mailbox: FakeMailbox, make_invoice) -> tuple[str, str]:
+    """25 correos nuevos: facturas en los UID 1 y 25, avisos en el resto."""
+    first = make_invoice(estimated=False, number="N-01")
+    last = make_invoice(estimated=False, number="N-25")
+    mailbox.add(1, (b"first", first))
+    for uid in range(2, 25):
+        mailbox.add(uid)
+    mailbox.add(25, (b"last", last))
+    return first.number, last.number
+
+
+async def test_first_sync_downloads_in_batches(
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, make_invoice
+):
+    first, last = _batched_mailbox(mailbox, make_invoice)
+    entry = make_entry()
+    key = STORE_KEY.format(entry.entry_id)
+    saved_before_second_batch: dict = {}
+
+    def on_fetch(call: int) -> None:
+        if call == 2:
+            saved_before_second_batch.update(copy.deepcopy(hass_storage[key]))
+
+    mailbox.on_fetch = on_fetch
+    await setup_entry(hass, entry)
+
+    # R26: lotes de 20; el segundo ya salta los UID del primero.
+    assert mailbox.calls == [
+        ("INBOX", frozenset(), None),
+        ("INBOX", frozenset(range(1, 21)), 1),
+    ]
+    # El Store se guardó tras el primer lote.
+    assert saved_before_second_batch["data"]["mail"]["seen"] == list(range(1, 21))
+    assert list(saved_before_second_batch["data"]["invoices"]) == [first]
+
+    store = entry.runtime_data.store
+    assert store.mail.seen == set(range(1, 26))
+    assert set(store.invoices) == {first, last}
+    saved = hass_storage[key]["data"]
+    assert saved["mail"]["seen"] == list(range(1, 26))
+    assert set(saved["invoices"]) == {first, last}
+
+
+async def test_failure_in_second_batch_keeps_first_batch(
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, make_invoice
+):
+    first, last = _batched_mailbox(mailbox, make_invoice)
+    entry = make_entry()
+    key = STORE_KEY.format(entry.entry_id)
+
+    def on_fetch(call: int) -> None:
+        if call == 2:
+            raise MailConnectionError("Cannot connect to the IMAP server (OSError)")
+
+    mailbox.on_fetch = on_fetch
+    # R21: el primer lote ya guardó una factura, así que la entrada carga.
+    await setup_entry(hass, entry)
+
+    coordinator = entry.runtime_data
+    assert coordinator.data.mail_error is True
+    store = coordinator.store
+    assert store.mail.seen == set(range(1, 21))
+    assert set(store.invoices) == {first}
+    saved = hass_storage[key]["data"]
+    assert saved["mail"]["seen"] == list(range(1, 21))
+    assert set(saved["invoices"]) == {first}
+
+    # El siguiente refresco sigue donde se quedó.
+    mailbox.on_fetch = None
+    await coordinator.async_refresh()
+    assert mailbox.calls[-1] == ("INBOX", frozenset(range(1, 21)), 1)
+    assert coordinator.data.mail_error is False
+    assert store.mail.seen == set(range(1, 26))
+    assert set(store.invoices) == {first, last}
+
+
+async def test_oversized_message_counted_as_unsupported(
+    hass: HomeAssistant, mailbox: FakeMailbox, caplog
+):
+    mailbox.add(1)
+    mailbox.add(2)
+    mailbox.oversized = {2}
+
+    with caplog.at_level(logging.WARNING):
+        coordinator = await _setup(hass)
+
+    mail = coordinator.store.mail
+    assert mail.seen == {1}
+    assert mail.unsupported == {2}
+    assert coordinator.data.unsupported_emails == 1
+    assert "UID 2: the message is larger than 15 MB" in integration_log(caplog)
+
+    await coordinator.async_refresh()
+    assert mailbox.calls[-1] == ("INBOX", frozenset({1, 2}), 1)
+    assert coordinator.store.mail.unsupported == {2}
+
+
 async def test_parse_error_recorded_and_retried_on_new_version(
     hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, caplog
 ):

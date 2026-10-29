@@ -8,6 +8,7 @@ import pytest
 
 from custom_components.curenergia.const import SENDER
 from custom_components.curenergia.mail import (
+    MAX_MESSAGE_BYTES,
     MailAuthError,
     MailClient,
     MailConnectionError,
@@ -15,7 +16,7 @@ from custom_components.curenergia.mail import (
     parse_email_total,
 )
 
-from .fake_imap import FAKE_PDF, FakeFolder, FakeIMAP, build_message
+from .fake_imap import FAKE_PDF, FakeFolder, FakeIMAP, build_message, spec_is_size
 
 WIRE = "Facturas/Energ&AO0-a"
 HTML = "<td>Importe: 1.058,40&nbsp;€</td>"
@@ -114,6 +115,110 @@ def test_fetch_ignores_skip_when_uidvalidity_unknown() -> None:
     fake = make_fake()
     make_client(fake).fetch("Facturas/Energía", {1, 2}, None)
     assert [uid for uid, _ in fake.fetched_commands] == ["1", "2"]
+
+
+def _many(count: int, **sizes: int) -> FakeIMAP:
+    """``INBOX`` con ``count`` avisos (UID 1..count) y tamaños declarados."""
+    messages = {uid: build_message() for uid in range(1, count + 1)}
+    declared = {int(uid.removeprefix("u")): size for uid, size in sizes.items()}
+    return FakeIMAP({"INBOX": FakeFolder(3, messages, sizes=declared)})
+
+
+def test_fetch_checks_sizes_of_new_uids_first() -> None:
+    fake = _many(4)
+    result = make_client(fake).fetch("INBOX", {2}, 3)
+    assert fake.size_commands == [("1,3,4", "(RFC822.SIZE)")]
+    assert [uid for uid, _ in fake.fetched_commands] == ["1", "3", "4"]
+    assert result.fetched == frozenset({1, 3, 4})
+    assert result.oversized == frozenset()
+    assert result.remaining is False
+
+
+def test_fetch_skips_oversized_messages_without_downloading() -> None:
+    fake = _many(3, u2=MAX_MESSAGE_BYTES + 1, u3=MAX_MESSAGE_BYTES)
+    result = make_client(fake).fetch("INBOX", [], None)
+    # Más de 15 MB: no se descarga; justo 15 MB sí.
+    assert [uid for uid, _ in fake.fetched_commands] == ["1", "3"]
+    assert result.oversized == frozenset({2})
+    assert result.fetched == frozenset({1, 3})
+    assert [m.uid for m in result.messages] == [1, 3]
+    assert result.all_uids == frozenset({1, 2, 3})
+    assert result.remaining is False
+
+
+def test_fetch_honours_limit_in_ascending_order() -> None:
+    fake = _many(5, u1=MAX_MESSAGE_BYTES + 1)
+    result = make_client(fake).fetch("INBOX", [], None, limit=2)
+    assert [uid for uid, _ in fake.fetched_commands] == ["2", "3"]
+    assert result.fetched == frozenset({2, 3})
+    assert result.oversized == frozenset({1})
+    assert result.remaining is True
+    assert result.all_uids == frozenset(range(1, 6))
+
+
+def test_fetch_limit_defaults_to_20() -> None:
+    fake = _many(21)
+    result = make_client(fake).fetch("INBOX", [], None)
+    assert len(fake.fetched_commands) == 20
+    assert 21 not in result.fetched
+    assert result.remaining is True
+
+
+def test_fetch_remaining_false_when_limit_reached_exactly() -> None:
+    fake = _many(3, u3=MAX_MESSAGE_BYTES + 1)
+    result = make_client(fake).fetch("INBOX", [], None, limit=2)
+    assert result.fetched == frozenset({1, 2})
+    assert result.remaining is False
+
+
+def test_fetch_without_new_uids_skips_size_check() -> None:
+    fake = _many(2)
+    result = make_client(fake).fetch("INBOX", {1, 2}, 3)
+    assert fake.size_commands == []
+    assert fake.fetched_commands == []
+    assert result.fetched == frozenset()
+    assert result.remaining is False
+
+
+def test_fetch_downloads_uid_without_reported_size() -> None:
+    fake = _many(2)
+    fake.uid = _without_size_for(fake, "2")  # type: ignore[method-assign]
+    result = make_client(fake).fetch("INBOX", [], None)
+    assert result.fetched == frozenset({1, 2})
+    assert result.oversized == frozenset()
+
+
+def _without_size_for(fake: FakeIMAP, missing: str):
+    original = fake.uid
+
+    def uid(command: str, *args: str | None):
+        status, data = original(command, *args)
+        if command == "FETCH" and spec_is_size(args):
+            # Una línea sin tamaño para ``missing`` y un ``None`` (sin respuesta).
+            tail = f"UID {missing})".encode()
+            data = [
+                f"9 (UID {missing})".encode() if line.endswith(tail) else line
+                for line in data
+            ]
+            data.append(None)
+        return status, data
+
+    return uid
+
+
+def test_fetch_size_check_failure_raises_connection_error() -> None:
+    fake = _many(1)
+    original = fake.uid
+
+    def uid(command: str, *args: str | None):
+        if command == "FETCH" and spec_is_size(args):
+            return "NO", [b"error"]
+        return original(command, *args)
+
+    fake.uid = uid  # type: ignore[method-assign]
+    with pytest.raises(MailConnectionError):
+        make_client(fake).fetch("INBOX", [], None)
+    assert fake.fetched_commands == []
 
 
 def test_fetch_drops_message_from_other_sender() -> None:

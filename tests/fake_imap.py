@@ -19,6 +19,8 @@ class FakeFolder:
     uidvalidity: int
     messages: dict[int, bytes] = field(default_factory=dict)
     noselect: bool = False
+    # Tamaño que declara el servidor (``RFC822.SIZE``) si no es el real.
+    sizes: dict[int, int] = field(default_factory=dict)
 
 
 def build_message(
@@ -52,6 +54,11 @@ def build_message(
     return msg.as_bytes()
 
 
+def spec_is_size(args: tuple) -> bool:
+    """Si un ``UID FETCH`` pide solo el tamaño de los mensajes."""
+    return len(args) == 2 and "RFC822.SIZE" in str(args[1])
+
+
 class FakeIMAP:
     """Sustituto de ``imaplib.IMAP4`` para los tests."""
 
@@ -59,7 +66,10 @@ class FakeIMAP:
         self.folders = folders
         self.password = password
         self.selected: tuple[str, bool] | None = None
+        # ``UID FETCH`` del cuerpo: (uid, spec).
         self.fetched_commands: list[tuple[str, str]] = []
+        # ``UID FETCH`` de tamaños: (conjunto de UID, spec).
+        self.size_commands: list[tuple[str, str]] = []
         self.search_args: tuple | None = None
         self.logged_in = False
         self.logged_out = False
@@ -106,6 +116,19 @@ class FakeIMAP:
             self.search_args = args
             uids = " ".join(str(uid) for uid in sorted(self._current.messages))
             return "OK", [uids.encode()]
+        if command == "FETCH" and spec_is_size(args):
+            uids, spec = args
+            assert isinstance(uids, str)
+            self.size_commands.append((uids, str(spec)))
+            folder = self._current
+            # Como Gmail: ``RFC822.SIZE`` antes que ``UID``.
+            return "OK", [
+                (
+                    f"{seq} (RFC822.SIZE "
+                    f"{folder.sizes.get(int(u), len(folder.messages[int(u)]))} UID {u})"
+                ).encode()
+                for seq, u in enumerate(uids.split(","), start=1)
+            ]
         if command == "FETCH":
             uid, spec = args
             assert isinstance(uid, str)

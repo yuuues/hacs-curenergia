@@ -22,6 +22,12 @@ from . import imap_utf7
 from .const import SENDER
 
 _IMAP_TIMEOUT = 30
+# R26: los correos más grandes no se descargan (se cuentan como no soportados).
+MAX_MESSAGE_BYTES = 15 * 1024 * 1024
+# R26: correos que se descargan como mucho en cada ``fetch``.
+DEFAULT_FETCH_LIMIT = 20
+_SIZE_RE = re.compile(rb"RFC822\.SIZE (\d+)")
+_UID_RE = re.compile(rb"UID (\d+)")
 _TAG_RE = re.compile(r"<[^>]*>")
 _TOTAL_RE = re.compile(r"Importe:\s*([\d.]+,\d{2})\s*€")
 _LIST_RE = re.compile(r"^\((?P<flags>[^)]*)\)\s+(?:\"[^\"]*\"|NIL)\s+(?P<name>.+)$")
@@ -49,8 +55,17 @@ class FetchResult:
     """Resultado de leer una carpeta."""
 
     uidvalidity: int
+    # Todos los UID del remitente en la carpeta.
     all_uids: frozenset[int]
+    # Correos del remitente descargados en este lote (``fetched`` sin los que
+    # se descartan: otro remitente o respuesta vacía).
     messages: tuple[MailMessage, ...]
+    # UID descargados en este lote, tengan mensaje o no.
+    fetched: frozenset[int]
+    # UID nuevos de más de ``MAX_MESSAGE_BYTES``: no se descargan.
+    oversized: frozenset[int]
+    # Quedan UID nuevos (no demasiado grandes) por descargar.
+    remaining: bool
 
 
 def _default_factory(host: str, port: int) -> imaplib.IMAP4:
@@ -153,6 +168,19 @@ def _parse_message(uid: int, raw: bytes) -> MailMessage | None:
     return MailMessage(uid=uid, email_total=total, pdfs=tuple(pdfs))
 
 
+def _sizes_from_fetch(data: list) -> dict[int, int]:
+    """``UID → RFC822.SIZE`` de la respuesta de ``UID FETCH (RFC822.SIZE)``."""
+    sizes: dict[int, int] = {}
+    for item in data:
+        if not isinstance(item, bytes):
+            continue
+        uid = _UID_RE.search(item)
+        size = _SIZE_RE.search(item)
+        if uid is not None and size is not None:
+            sizes[int(uid.group(1))] = int(size.group(1))
+    return sizes
+
+
 def _raw_from_fetch(data: list) -> bytes | None:
     for item in data:
         if isinstance(item, tuple) and len(item) >= 2 and isinstance(item[1], bytes):
@@ -247,10 +275,16 @@ class MailClient:
         folder: str,
         skip_uids: Collection[int],
         uidvalidity: int | None,
+        limit: int = DEFAULT_FETCH_LIMIT,
     ) -> FetchResult:
         """Lee los correos del remitente en ``folder`` sin marcarlos como leídos.
 
         Si ``uidvalidity`` no coincide con el del servidor, ``skip_uids`` se ignora.
+
+        R26: primero pide el tamaño de los UID nuevos; los de más de
+        ``MAX_MESSAGE_BYTES`` no se descargan (``oversized``). Del resto
+        descarga como mucho ``limit``, en orden ascendente; ``remaining`` dice
+        si quedan más.
         """
         with self._session() as conn:
             if "\r" in folder or "\n" in folder:
@@ -274,8 +308,22 @@ class MailClient:
             skip = (
                 frozenset(skip_uids) if uidvalidity == server_validity else frozenset()
             )
+            new = sorted(all_uids - skip)
+            oversized: frozenset[int] = frozenset()
+            if new:
+                uid_set = ",".join(str(uid) for uid in new)
+                status, data = conn.uid("FETCH", uid_set, "(RFC822.SIZE)")
+                if status != "OK":
+                    raise MailConnectionError("IMAP FETCH failed")
+                sizes = _sizes_from_fetch(data)
+                oversized = frozenset(
+                    uid for uid in new if sizes.get(uid, 0) > MAX_MESSAGE_BYTES
+                )
+            wanted = [uid for uid in new if uid not in oversized]
+            batch = wanted[:limit]
+
             messages: list[MailMessage] = []
-            for uid in sorted(all_uids - skip):
+            for uid in batch:
                 status, data = conn.uid("FETCH", str(uid), "(BODY.PEEK[])")
                 if status != "OK":
                     raise MailConnectionError("IMAP FETCH failed")
@@ -289,4 +337,7 @@ class MailClient:
                 uidvalidity=server_validity,
                 all_uids=all_uids,
                 messages=tuple(messages),
+                fetched=frozenset(batch),
+                oversized=oversized,
+                remaining=len(wanted) > len(batch),
             )
