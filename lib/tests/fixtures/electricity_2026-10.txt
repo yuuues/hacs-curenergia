@@ -1,0 +1,260 @@
+DATOS DE LA FACTURA DE ELECTRICIDAD
+ 
+IMPORTE FACTURA: 102,55 €
+Nº Factura: 09261006010000001 emitida el 6 de octubre de 2026
+Periodo de consumo: 29 de agosto de 2026 a 28 de septiembre de
+2026
+Fecha límite de pago: 26 de octubre de 2026
+Página   1 / 4
+CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U.
+CIF A-95554630
+Domicilio social: Plaza Euskadi 5, 48009 Bilbao
+Documento emitido por CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. - Plaza Euskadi 5, 48009 Bilbao; inscrita en el Registro Mercantil de Bizkaia al Tomo 5015, Folio 19, Hoja  BI-53822, inscripción 1ª - CIF A-95554630
+RESUMEN DE LA FACTURA
+Remite: CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. Apartado Correos 61342 28080 MADRID
+NOMBRE APELLIDO1 APELLIDO2
+C/ FALSA, 1, 1 1
+08000 CIUDAD (PROVINCIA)
+DATOS DEL CONTRATO
+INFORMACIÓN DEL CONSUMO ELÉCTRICO
+Ag.
+25
+St.
+25
+Oc.
+25
+Nv.
+25
+Dc.
+25
+En.
+26
+Fb.
+26
+Mr.
+26
+Ab.
+26
+My.
+26
+Jn.
+26
+Ag.
+26
+Ag.
+26
+St.
+26
+kWh
+200
+400
+600
+800
+DESTINO DEL IMPORTE DE LA FACTURA
+PEAJES DE TRANSPORTE
+Y DISTRIBUCIÓN
+13,9%
+IMPUESTOS
+21,3%
+ENERGÍA
+53% ALQUILER CONTADOR0,8%
+CARGOS
+10,3%
+Por potencia contratada 11,94 €
+Por energía consumida 67,07 €
+Por financiación del bono social 0,74 €
+Impuesto electricidad 4,08 €
+Otros 0,15 €
+Alquiler del contador 0,80 €
+IVA 21 % s/84,63 € 17,77 €
+TOTAL IMPORTE FACTURA: 102,55 €
+Titular: NOMBRE APELLIDO1 APELLIDO2
+NIF:  00000000T
+Dirección de suministro:  C/ FALSA, 1, 1 1 08000 CIUDAD (PROVINCIA)
+TIPO DE CONTRATO: PVPC - MERCADO REGULADO
+Nº contador:  300000001
+Peajes de transporte y distribución : 2.0TD
+Segmento tarifario de cargos: 1
+Potencia contratada periodo punta: 4,6 kW
+Potencia contratada periodo valle: 4,6 kW
+Referencia del contrato de suministro (CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U.): 100000001
+Referencia del contrato de acceso (EDISTRIBUCIÓN REDES DIGITALES S.L.U.): 500000000001
+Fecha final contrato: 1 de enero de 2030 (renovación anual automática)
+Código unificado de punto de suministro CUPS: ES 0031 0000 0000 0001 AA
+Su consumo en el periodo facturado ha sido: 380,06 kWh
+Puede consultar su consumo horario en el portal web de su distribuidora
+(https://zonaprivada.endesadistribucion.es).
+ 
+ VALLE    LLANO    PUNTA
+Su consumo medio diario en este último periodo facturado ha sido: 3,42 €
+Su consumo medio diario en los últimos 14 meses ha sido: 2,56 €
+Su consumo acumulado del último año ha sido de 4.156,35 kWh
+Las potencias máximas demandadas en el último año han sido 3,62 kW
+en P1 (punta) y 3,34 kW en P2 (valle).
+Lectura actual (real) (28 de septiembre de 2026)
+Lectura en P1 (punta): 10.000,00 kWh Consumo en P1: 107,11 kWh
+Lectura en P2 (llano): 20.000,00 kWh Consumo en P2: 104,16 kWh
+Lectura en P3 (valle): 30.000,00 kWh Consumo en P3: 168,79 kWh
+El importe total de su factura tiene este destino:
+CARGOS
+Renovables, cogeneración
+y residuos 4,4%
+Anualidades del déficit 4,0%
+Sobrecoste generación no
+peninsular 1,8%
+Otros 0,1%
+La energía incluye, entre otros, el coste de la energía en el mercado, los
+pagos por capacidad y la retribución al Operador del Sistema (REE) y al
+Operador de Mercado (OMIE).
+Los peajes retribuyen las redes de transporte y distribución.
+Los cargos incluyen fundamentalmente la retribución a las renovables,
+cogeneración y residuos (RECORE), las anualidades del déficit y el
+sobrecoste de generación en TNP (territorios no peninsulares).
+Emisora Referencia Identificación Importe
+95554630-001 0000000000001 061026 € 102,55
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+"
+Página   1 / 483100021
+DESGLOSE DE LA FACTURA
+INFORMACIÓN SOBRE RECLAMACIONES
+Facturación por potencia contratada ("TÉRMINO FIJO"): 11,94 €
+Importe por peajes de transporte y distribución potencia:
+P1 (punta): 4,6 kW x 30 días x 0,063904 €/kW día 8,82 €
+P2 (valle): 4,6 kW x 30 días x 0,001216 €/kW día 0,17 €
+Importe por cargos potencia:
+P1 (punta): 4,6 kW x 30 días x 0,011999 €/kW día 1,66 €
+P2 (valle): 4,6 kW x 30 días x 0,000772 €/kW día 0,11 €
+Margen de comercialización fijo:
+4,6 kW x 30 días x 0,008529 €/kW día 1,18 €
+Facturación por energía consumida ("TÉRMINO VARIABLE"): 67,07 €
+Importe por peajes de transporte y distribución energía:
+P1 (punta): 107,11 kWh x 0,033261 €/kWh 3,56 €
+P2 (llano): 104,16 kWh x 0,016409 €/kWh 1,71 €
+P3 (valle): 168,79 kWh x 0,000077 €/kWh 0,01 €
+Importe por cargos energía:
+P1 (punta): 107,11 kWh x 0,064292 €/kWh 6,89 €
+P2 (llano): 104,16 kWh x 0,012858 €/kWh 1,34 €
+P3 (valle): 168,79 kWh x 0,003215 €/kWh 0,54 €
+Coste de la energía:
+380,06 kWh x 0,139504 €/kWh 53,02 €
+Facturación por financiación del bono social
+30 días x 0,024688 €/día 0,74 €
+Subtotal por potencia y energía 79,75 €
+Impuesto de electricidad
+5,11269632 % s/79,75 € 4,08 €
+Alquiler del contador
+30 días x 0,02663014 €/día 0,80 €
+Intereses de demora (*) 0,15 €
+IMPORTE TOTAL 84,78 €
+Impuesto de aplicación
+IVA 21 % s/84,63 € 17,77 €
+TOTAL IMPORTE FACTURA 102,55 €
+                  (*) No se aplica IVA sobre este concepto
+Precios de los términos del peaje de transporte y distribución, de los cargos, del contador y margen de comercialización fijo según normativa en vigor. PVPC calculado según
+Real Decreto 216/2014.
+Atención al cliente (CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO
+S.A.U.): 800 760 719; 91 125 36 57; 94 646 01 96
+Averías y Urgencias (EDISTRIBUCIÓN REDES DIGITALES S.L.U.): 900878212
+Puntos de atención cercanos: CL OFICINA 1 08000 CIUDAD
+/ PZ OFICINA 2 08000 CIUDAD
+ 
+Reclamaciones (CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO
+S.A.U.):
+900 12 38 12;   clientes@tucurenergia.es
+Dirección postal reclamaciones (CURENERGÍA COMERCIALIZADOR DE
+ÚLTIMO RECURSO S.A.U.): 
+Departamento de Reclamaciones, Apdo. de Correos 61090 - 28080 Madrid
+Dirección de la página web con información sobre reclamaciones: www.curenergia.es/atencion-cliente
+CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U se ha adherido al Sistema Arbitral de Consumo, siguiendo la política de máximas garantías, transparencia y
+compromiso en la relación con los consumidores. Para ampliar información sobre los asuntos objeto de arbitraje y su procedimiento, estamos a su disposición en el
+Teléfono del Cliente 800 760 719; 91 125 36 57; 94 646 01 96 y en www.curenergia.es.
+Forma de pago: EN ENTIDADES BANCARIAS CONCERTADAS PRESENTANDO ESTA FACTURA
+Fecha límite de pago:  26/10/2026
+Certificado PEFC. Este papel procede de bosques gestionados de forma sostenible y fuentes controladas. www.pefc.es
+Página   2 / 4 
+¿Buscas un hogar 
+más eﬁciente?
+Desde Curenergía queremos ayudarte
+a conseguirlo.
+Solo tienes que seguir los consejos que 
+hemos preparado para ti a través del 
+siguiente código QR:
+DETALLE DE LIQUIDACIÓN
+En el código QR o en el enlace https://comparador.cnmc.gob.es puede consultar y comparar las
+distintas ofertas vigentes de las comercializadoras de energía eléctrica en mercado libre.
+l Para el periodo de esta factura el consumo medio de electricidad de los suministros en su mismo código postal ha sido de 203,69 kWh.
+l En esta factura se recogen los intereses de demora generados por el retraso en el pago de facturas anteriores.
+Nº Factura Fecha factura Importe factura Fecha
+Notificación
+Fecha Cálculo Fecha Pago Importe Pago Tipo % Días Importe
+intereses
+09260806010000003 06/08/2026 105,89 27/08/2026 31/08/2026 31/08/2026 105,89 5,25 4 0,06 €
+09260903010000004 03/09/2026 100,85 24/09/2026 30/09/2026 30/09/2026 100,85 5,25 6 0,09 €
+Importe 0,15 €
+Certificado PEFC. Este papel procede de bosques gestionados de forma sostenible y fuentes controladas. www.pefc.es
+Número de factura 09261006010000001 Página   3 / 484000021
+Documento emitido por CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. - Plaza Euskadi 5, 48009 Bilbao; inscrita en el Registro Mercantil de Bizkaia al Tomo 5015, Folio 19, Hoja BI-53822, inscripción 1ª - CIF A-95554630
+Si bien la energía eléctrica que llega a nuestros hogares es indistinguible de la que consumen nuestros vecinos u otros 
+consumidores conectados al mismo sistema eléctrico, es posible conocer el origen de la producción de energía eléctrica 
+equivalente a la que consume en el hogar.
+A estos efectos, se proporciona el desglose de la mezcla de tecnologías de producción nacional para así comparar los 
+porcentajes del promedio nacional con los correspondientes a la energía vendida por su Compañía Comercializadora.
+Origen Curenergía
+Mix de 
+generación 
+nacional
+Renovable 4,9% 55,2%
+Cogen. Alta 
+Eﬁciencia 1,0% 1,5%
+CC Gas Natural 37,1% 17,4%
+Carbón 5,0% 0,6%
+Fuel/Gas 2,3% 1,1%
+Nuclear 39,3% 19,2%
+Otras no renovables 10,4% 5,0%
+ Otras     Nuclear       Fuel/Gas     CC Gas Natural      Renovables      Cogeneración de Alta Eﬁciencia       Carbón
+El impacto ambiental de su electricidad depende de las fuentes energéticas utilizadas para su generación.
+En una escala de ‘A’ a ‘G’ donde ‘A’ indica el mínimo impacto ambiental y ‘G‘ el máximo, y que el valor medio nacional 
+corresponde al nivel ‘D’, la energía comercializada por Curenergía tiene los siguientes valores.
+Impacto medioambiental
+Mas información sobre el origen de su electricidad en https://gdo.cnmc.es/
+Emisiones de CO2 eq. (g/kWh) 258
+Media nacional (g/kWh) 107
+Emisiones de CO2
+Curenergía
+Residuos Radiactivos (µg/kWh) 951
+Media nacional (µg/kWh) 464
+Residuos Radiactivos 
+Alta Actividad Curenergía
+INF ORMA CIÓN SOBRE SU ELE CTRICID AD
+Origen de electricidad 2025
+CURENERGÍA
+Cogen. Alta Eﬁciencia
+1%
+Otras no renovables
+10,4%
+Carbón
+5%
+Fuel/Gas
+2,3%
+Renovable
+4,9%
+CC Gas 
+Natural
+37,1%
+Nuclear
+39,3%
+01 ECURPVPCT SGSUR 0070
+Usted tiene contratado el Precio Voluntario para el Pequeño Consumidor (PVPC). No obstante, puede contratar también 
+con cualquier comercializadora en mercado libre. El listado de comercializadoras de referencia y de comercializadoras de 
+mercado libre está disponible en la página web de la CNMC: www.cnmc.es 
+Si está recibiendo su factura en papel, puede solicitar en su lugar la factura electrónica en
+www.curenergia.es/gestiones/facturacion/factura-electronica
+BONO SOCIAL PARA CONSUMIDORES VULNERABLES:
+Tienen derecho a acogerse al bono social aquellos consumidores vulnerables que cumplan con las características sociales, 
+de consumo y poder adquisitivo que se determinan. En todo caso, personas físicas en su vivienda habitual. Dispone de 
+información sobre el bono social en el teléfono 800 760 719 y 94 646 01 96 o en la página web www.curenergia.es/bono-
+social
+Otra información de interés: Consumidores de energía e información sobre la factura: www.cnmc.es. Información sobre 
+consumo eﬁciente y ahorro energético: www.idae.es. Información sobre PVPC: www.ree.es
+INF ORMA CIÓN P ARA EL  CONSUMIDOR
+Página   4 / 4

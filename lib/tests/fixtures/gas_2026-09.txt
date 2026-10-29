@@ -1,0 +1,207 @@
+Emisora Referencia Identificación Importe
+95554630-001 0000000000002 110926 € 19,20
+Atención al Cliente: Consultas, gestiones y reclamaciones 24 horas en el 800 760 719; 91 125 36 57; 94 646 01 96
+Atención Averías de Red: 900 750 750
+Puntos de atención cercanos:
+CL OFICINA 1 08000 CIUDAD
+PZ OFICINA 2 08000 CIUDAD
+www.curenergia.es
+DATOS DE FACTURA
+TOTAL IMPORTE FACTURA: 19,20 €
+ 
+Periodo de facturación 07/07/2026 - 07/09/2026
+Número de factura 09260911010000002
+Fecha de emisión de factura 11 de septiembre de 2026
+Fecha límite de pago 01/10/2026
+Factura con lectura estimada
+Titular NOMBRE APELLIDO1 APELLIDO2
+NIF:  00000000T
+Número de contrato 1000000002
+Remite: CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. Apartado Correos 61342 28080 MADRID
+NOMBRE APELLIDO1 APELLIDO2
+C/ FALSA, 1, 1 1
+08000 CIUDAD (PROVINCIA)
+Dirección de suministro:  C/ FALSA, 1, 1 1 08000
+CIUDAD (PROVINCIA)
+RESUMEN DE FACTURACIÓN
+ EVOLUCIÓN DE CONSUMO
+St.
+24
+Nv. En.
+25
+Mr. My. Jl. St. Nv. En.
+26
+Mr. My. Jl. Jl. St.
+kWh
+150
+300
+450
+600
+ENERGÍA 14,71 €
+SERVICIOS Y OTROS CONCEPTOS 1,16 €
+IVA  21 % s/15,87 € 3,33 €
+TOTAL A PAGAR 19,20 €
+> ver detalle de facturación y consumo en el reverso
+ Lectura real                Lectura estimada
+Este gráfico muestra la evolución de su consumo.
+Su consumo medio diario en este último periodo facturado ha sido: 0,31 €
+Su consumo medio diario en los últimos 12 meses ha sido: 0,32 €
+LE AYUDAMOS A ENTENDER SU FACTURA
+En la parte inferior del anverso de su factura puede consultar los diferentes canales de atención para contactar con
+Curenergía.
+Documento emitido por CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. - Plaza Euskadi 5, 48009 Bilbao; inscrita en el Registro Mercantil de Bizkaia al Tomo 5015, Folio 19, Hoja  BI-53822, inscripción 1ª - CIF A-95554630
+Página   1 / 4CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U.
+FACTURA DE GAS
+TARIFA DE ÚLTIMO
+RECURSO
+CIF A-95554630
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+"37100021
+DATOS RELACIONADOS CON SU SUMINISTRO
+CONOZCA AL DETALLE SU FACTURACIÓN Y CONSUMOS
+Información consumo
+El consumo se calcula como diferencia entre lectura
+actual menos lectura anterior. En el caso del gas, el
+consumo se mide en metros cúbicos (1 m3 = 1.000 litros).
+Para facturar estos m3, es necesario convertirlos a
+energía consumida, kilovatios-hora (kWh). Para ello, se
+utilizan el Factor de Corrección y el Poder Calorífico
+Superior (PCS) cuyos valores son establecidos por
+ENAGAS (https://www.enagas.es/enagas/es/Gestion_
+Tecnica_Sistema/CalidadGas/Consultas_del_
+factor_de_conversión_de_facturación).
+ 
+INFORMACIÓN DE UTILIDAD
+Aparato de medida: 700000002
+Número de contrato: 1000000002
+Empresa distribuidora: NEDGIA CATALUNYA, S.A.
+Identificación punto de suministro (CUPS): ES 0217 0000 0000 0002 BB
+Forma de pago: EN ENTIDADES BANCARIAS CONCERTADAS
+PRESENTANDO ESTA FACTURA
+Fecha de pago:  PRESENTANDO ESTA FACTURA
+Fecha límite de pago:  01/10/2026
+Tarifa de suministro: TUR.1
+Precios de tarifas de suministro: B.O.E. 01-07-2026
+Peaje de acceso a la red (ATR): TARIFA PEAJE RL.1
+Precios de peajes de acceso: BOE-A-2025-11064
+Cargos y Canon de Almacenamiento subterráneo: BOE-A-2025-19341
+Duración de contrato hasta: 01 de enero (renovación automática)
+Presión de suministro: 0.022 Bar
+ENERGÍA
+Término fijo mensual 2,01 meses x 3,93 €/mes 7,90 €
+Energía facturada (estimada) 150,32 kWh x 0,04329798 €/kWh 6,51 €
+Impuesto sobre gas natural (estimado) (1) 150,32 kWh x 0,00202 €/kWh 0,30 €
+TOTAL ENERGÍA 14,71 €
+SERVICIOS Y OTROS CONCEPTOS
+Alquiler equipos de medida 1,16 €
+TOTAL SERVICIOS Y OTROS CONCEPTOS 1,16 €
+IMPORTE TOTAL 15,87 €
+IVA 21 % s/15,87 € 3,33 €
+TOTAL IMPORTE FACTURA 19,20 €
+Cargo aplicado 0,05 €
+Tasa CNMC 0,01 €
+(1) El tipo impositivo aplicado es 0,56€/gigajulio equivalente a 0,00202€/kWh
+CONSUMOS
+Lectura actual: estimada 1.013 m3 realizada el 07/09/2026
+Lectura anterior: real 1.000 m3 realizada el 07/07/2026
+Consumo en m3: estimada 13 m3 de 07/07/2026 a 07/09/2026
+Factor de corrección x 0,98400
+Poder Calorífico Superior (PCS) x 11,7510
+Consumo kWh: estimada 150,32 kWh de 07/07/2026 a 07/09/2026
+La lectura real es el valor leído por su distribuidor en su contador en la fecha indicada.
+La lectura estimada es un valor que su distribuidor calcula tomando como base su perfil de consumo. Si desea comunicar la lectura
+real de su contador a su distribuidor, NEDGIA CATALUNYA, S.A., puede hacerlo a través de su número de teléfono 900 770 770 o de
+su página web https://www.nedgia.es/clientes/lectura-del-contador/.
+l Puede obtener información sobre consumo energético y medidas de eficiencia en cualquiera de nuestros canales de atención, en la Comisión
+Nacional de los Mercados y la Competencia, calle Alcalá 47 28014 Madrid, www.cnmc.es;  en el Instituto para la Diversificación y Ahorro de la
+Energía, calle Madera 8 28004, www.idae.es; o en el organismo competente de su Comunidad Autónoma cuyo listado puede encontrar en la
+página web de la CNMC www.cnmc.es, apartado Energía/Consumidores de Energía/Gas Natural.
+l Puede acceder al histórico de sus facturas en su oficina virtual de clientes en  www.curenergia.es.
+l CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U se ha adherido al Sistema Arbitral de Consumo, siguiendo la política de máximas
+garantías, transparencia y compromiso en la relación con los consumidores. Para ampliar información sobre los asuntos objeto de arbitraje y
+su procedimiento, estamos a su disposición en el Teléfono del Cliente 800 760 719; 91 125 36 57; 94 646 01 96 y en www.curenergia.es.
+l El Termino Fijo y la Energía Facturada incluyen los Cargos, la Tasa de la CNMC de la facturación de peajes, cánones y cargos (0,14%) y la cuota
+de peajes y cánones destinada al GTS (1,354%).
+l La aplicación del impuesto de gas natural está establecida en la Ley 15/2012, de 27 de diciembre, de medidas fiscales para la sostenibilidad
+energética.
+l Precio de alquiler del contador según Orden TEC/1367/2018 y  Resolución de 4 de abril de 2024, de la CNMC, por la que se determina el precio
+transitorio del alquiler de contadores inteligentes de gas natural de caudal inferior o igual a 6 m3/h para clientes conectados a redes de
+menos de 4 bar y consumo igual o inferior a 50.000 kWh/año.
+l Para el periodo de esta factura el consumo medio de gas natural de los suministros en su mismo código postal ha sido de 192,82 kWh.
+l Nivel de Consumo de Referencia: <= 5.000 kWh/año.
+Documento emitido por CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. - Plaza Euskadi 5, 48009 Bilbao; inscrita en el Registro Mercantil de Bizkaia al Tomo 5015, Folio 19, Hoja  BI-53822, inscripción 1ª - CIF A-95554630
+Página   2 / 4
+Certificado PEFC. Este papel procede de bosques gestionados de forma sostenible y fuentes controladas. www.pefc.es 
+En el código QR o en el enlace https://comparador.cnmc.gob.es puede consultar y comparar las distintas ofertas vigentes
+de las comercializadoras de gas natural.
+CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U se ha adherido al Sistema Arbitral de Consumo, siguiendo la
+política de máximas garantías, transparencia y compromiso en la relación con los consumidores. Para ampliar información sobre los
+asuntos objeto de arbitraje y su procedimiento, estamos a su disposición en el Teléfono del Cliente 800 760 719; 91 125 36 57; 94 646
+01 96 y en www.curenergia.es.
+Documento emitido por CURENERGÍA COMERCIALIZADOR DE ÚLTIMO RECURSO S.A.U. - Plaza Euskadi 5, 48009 Bilbao; inscrita en el Registro Mercantil de Bizkaia al Tomo 5015, Folio 19, Hoja  BI-53822, inscripción 1ª - CIF A-95554630
+Página   3 / 4
+Certificado PEFC. Este papel procede de bosques gestionados de forma sostenible y fuentes controladas. www.pefc.es
+Número de factura 0926091101000000238000021
+En caso de olor a gas:
+• No encienda ningún interruptor ni aparatos eléctricos. Tampoco encienda cerillas o mecheros, no fume.
+• Abra las puertas y ventanas para ventilar al máximo la estancia.
+• Cierre los mandos de los aparatos de gas, así como la llave general de paso.
+• Llame cuanto antes al Teléfono del Cliente 900 100 309 para que el personal cualiﬁcado acuda a comprobar su instalación.
+• No abra de nuevo la llave de paso hasta que la instalación o el aparato averiado quede completamente reparado.
+Consejos útiles:
+•  Revise los aparatos y la instalación periódicamente. Es obligatorio realizar un mantenimiento preventivo de la instalación de gas. 
+Además, un correcto mantenimiento le permitirá ahorrar hasta un 22% del consumo de su caldera.
+•  La empresa distribuidora de gas natural está obligada a inspeccionar la instalación de gas natural cada 5 años (4 en el País Vasco) 
+y a emitirle un certiﬁcado.
+•  Cualquier modiﬁcación, revisión o inspección de su instalación de gas debe ser realizada por una empresa y un 
+instaladorautorizado.
+En cumplimiento de la normativa vigente, le informamos que los consumidores pueden elegir suministrador, y a continuación incluimos el 
+listado de empresas comercializadoras publicado por la Comisión Nacional de los Mercados y la Competencia (consultar la última versión 
+disponible en www.cnmc.es):
+Fecha de actualización: 8 de marzo de 2023
+(1)Teléfono gratuito a los efectos de lo dispuesto en el Real Decreto-ley 13/2012 “disponer de un servicio de atención a sus quejas, reclamaciones, solicitudes de información o comunicaciones de cualquier 
+incidencia en relación al servicio contratado u ofertado, poniendo a su disposición una dirección postal, un servicio de atención telefónica y un número de teléfono, ambos gratuitos, un número de fax y una 
+dirección de correo electrónico al que los mismos puedan dirigirse directamente.”
+(*)Solo comunidades de vecinos
+SGCUR XXXXX
+RECOMENDACIONES DE SEGURIDAD
+Empresas Comercializadoras de último recurso
+Nombre Comercializadora Teléfono gratuito de atención al cliente(1) Dirección de información (página web) Correo electrónico de atención al cliente
+BASER COMERCIALIZADORA DE REFERENCIA, S.A 900 902 947 www.basercor.es atcliente@basercor.es
+COMERCIALIZADORA REGULADA, GAS & POWER, S.A. 900 100 502   900 370 801(*) www.comercializadoraregulada.es cliente@comercializadoraregulada.es
+CURENERGIA COMERCIALIZACIÓN DE ÚLTIMO RECURSO, S.A.U. 900 100 309 www.curenergia.es clientes@tucurenergia.es
+ENERGÍA XXI COMERCIALIZADORA DE REFERENCIA, S.L. 800 760 333 www.energiaxxi.com atencionalcliente@energiaxxi.com
+Empresas Comercializadoras
+Nombre Comercializadora Teléfono gratuito de atención al cliente(1) Dirección de información (página web) Correo electrónico de atención al cliente
+IBERDROLA CLIENTES, S.A.U. 900 225 235 www.iberdrola.es clientes@tuiberdrola.es
+ALPIQ ENERGIA ESPAÑA, S.A.U. 900 802 076 www.alpiq.es
+ALTERNA OPERADOR INTEGRAL, S.L. 900 52 5 274 www.ﬂipenergia.com info@ﬂipenergia.com
+AUDAX RENOVABLE, S.A. 900 828 006 www.audaxenergia.com info@audaxenergia.com
+AXPO IBERIA, S.L. 900 101 311 www.axpo.com
+BP GAS & POWER IBERÍA, S.A.U. 900 100 520 www.bpgas.es
+CATGAS ENERGÍA, S.A. 900 494 308 www.catgas.cat
+CEPSA GAS COMERCIALIZADORA, S.A. 900 601 060 www.cepsa.com
+ENDESA ENERGIA S.A.U. 800 760 909 www.endesaonline.com clientesgas@endesaonline.com
+ENERGYA VM GESTION DE ENERGIA, S.L.U. 900 306 130 www.energyavm.es atcliente@energyavm.es
+ENGIE ESPAÑA, S.L.U. 900 866 301 www.engie-globalenergy.com/es/home-page/presence-in-europe/spain/ Formulario de contacto en la página de inicio de la web
+ENI ESPAÑA COMERCIALIZADORA DE GAS, S.A. 900 300 200
+FACTOR ENERGÍA, S.A. 900 649 028 www.factorenergia.com factor@factorenergia.com
+FENIE ENERGIA, S.A. 900 215 470 www.fenieenergia.es clientes@fenieenergia.es
+FUTURA ENERGIA Y GAS , S.L. 900 103 094 www.futuragas.com
+GALP ENERGIA ESPAÑA, S.A.U. 900 101 744 www.galpenergia.com clientesgasnatural@galpenergia.com
+GASINDUR, S.L. 900 404 045 www.gasindur.com sac@gasindur.com
+GAS NATURAL COMERCIALIZADORA, S.A. 900 100 264 www.grandesclientes.naturgy.es Formulario online sección “formulario de atención comercial“ de la web 
+INGENIERÍA Y COMERCIALIZACIÓN DEL GAS, S.A. 900 102 352 www.incogas.com
+NATURGY IBERIA, S.A. 900 100 251 www.naturgy.es servicioatencioncliente@naturgy.com
+NEOELECTRA ENERGIA, S.L.U. 900 102 613 www.neoelectraenergia.es neoen.clientes@neoelectra.es
+NEXUS ENERGIA, S.A. 900 818 533 www.nexusenergia.com
+ON DEMAND FACILITIES, S.L. 900 908 108 www.odfenergia.es
+PETRONAVARRA, S.L. 900 302 505 www.petronavarra.com petronavarra@petronavarra.com
+REPSOL COMERCIALIZADORA DE GAS Y ELECTRICIDAD, S.A 900 11 88 66900 10 22 72 (PYMES) https://www.repsolluzygas.com gestion.clientes@repsoleyg.com
+SERVIGAS S.XXI S.A. 900 102 045
+SHELL ESPAÑA, S.A. 900 121 620 www.shell.es
+SONATRACH GAS COMERCIALIZADORA, S.A. 900 103 324 www.sonatrach.es
+TOTALENERGIES ELECTRICIDAD Y GAS ESPAÑA, S.A.U. 900 926 676 www.totalenergia.es tge.info@total.com
+TOTALENERGIES CLIENTES, S.A.U. 900 907 000 www.totalenergia.es
+XENERA COMPAÑÍA ELÉCTRICA, S.A. 900 600 116 www.xenera.com info@xenera.com
+Página   4 / 4

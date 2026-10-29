@@ -1,0 +1,27 @@
+name: lib
+
+on:
+  push:
+    paths: ["lib/**", ".github/workflows/lib.yml"]
+  pull_request:
+    paths: ["lib/**", ".github/workflows/lib.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv run --locked --directory lib ruff check .
+      - run: uv run --locked --directory lib pytest -v

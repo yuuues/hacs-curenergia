@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pycurenergia"
+version = "0.1.0"
+description = "Parser de facturas en PDF de CurEnergía (proyecto no oficial)."
+readme = "README.md"
+authors = [{ name = "yuuues" }]
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
+dependencies = ["pypdf>=6.0"]
+# Sin clasificador «License :: …»: PEP 639 lo sustituye por ``license`` (MIT) y
+# PyPI rechaza combinarlo con una expresión de licencia.
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Source = "https://github.com/yuuues/hacs-curenergia"
+Issues = "https://github.com/yuuues/hacs-curenergia/issues"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "reportlab>=4"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pycurenergia"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -11,3 +11,5 @@ node_modules/
 !tests/fixtures/**/*.pdf
 !lib/tests/fixtures/**/*.pdf
 private/
+dist/
+.ruff_cache/
