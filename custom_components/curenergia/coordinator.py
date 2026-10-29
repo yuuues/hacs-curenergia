@@ -36,7 +36,7 @@ from .const import (
     DOMAIN,
     EDATA_AUTO,
 )
-from .edata import find_edata_id, make_provider
+from .edata import cups_key, edata_entry_cups_key, find_edata_id, make_provider
 from .mail import MailAuthError, MailClient, MailConnectionError, MailMessage
 from .matching import InvoiceRow, Thresholds, Totals, TotalsProvider, match_contract
 from .storage import InvoiceStore, StoredInvoice, build_stored
@@ -147,7 +147,9 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
 
         Primero se busca por CUPS. El vínculo manual de las opciones solo se
         aplica si ``cups`` es el único CUPS de luz guardado que no tiene
-        e-data por CUPS (aunque lo compartan varios contratos).
+        e-data por CUPS (aunque lo compartan varios contratos), y si la
+        entrada elegida no está ya vinculada por CUPS a otro CUPS de luz
+        guardado (R29).
         """
         edata_id = find_edata_id(self.hass, cups, None)
         if edata_id is not None:
@@ -156,14 +158,19 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         if override == EDATA_AUTO:
             return None
         # R19b: se cuentan CUPS distintos (contratos con el mismo CUPS son el
-        # mismo contador).
-        unmatched = {
-            stored.invoice.cups.upper()
+        # mismo contador; R28: por sus 20 primeros caracteres).
+        electricity = {
+            cups_key(stored.invoice.cups)
             for stored in self.store.invoices.values()
             if stored.invoice.supply is SupplyType.ELECTRICITY
-            and find_edata_id(self.hass, stored.invoice.cups, None) is None
         }
-        if unmatched != {cups.upper()}:
+        unmatched = {
+            key for key in electricity if find_edata_id(self.hass, key, None) is None
+        }
+        if unmatched != {cups_key(cups)}:
+            return None
+        # R29: la entrada elegida ya está vinculada por CUPS a otro contador.
+        if edata_entry_cups_key(self.hass, override) in electricity:
             return None
         return find_edata_id(self.hass, cups, override)
 

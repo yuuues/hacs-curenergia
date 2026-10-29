@@ -789,6 +789,66 @@ async def test_override_applies_to_contracts_sharing_the_unmatched_cups(
         assert (await coordinator.async_totals_provider("ES-M")).edata_id == "xxxx"
 
 
+async def test_override_unmatched_cups_compared_by_first_20_characters(
+    hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
+):
+    old = make_invoice(
+        estimated=False, number="A1", contract="CT-A", cups="ES0000000000000000MM"
+    )
+    new = make_invoice(
+        estimated=False, number="B1", contract="CT-B", cups="es0000000000000000mm1F"
+    )
+    manual = MockConfigEntry(
+        domain="edata", data={"cups": "ES0000000000000000XX", "scups": "XXXX"}
+    )
+    manual.add_to_hass(hass)
+    mailbox.add(1, (b"a", old))
+    mailbox.add(2, (b"b", new))
+    used: list[tuple[str, str]] = []
+
+    with patch(
+        "custom_components.curenergia.coordinator.make_provider",
+        side_effect=_tagging_make_provider(used),
+    ):
+        await _setup(hass, edata_entry=manual.entry_id)
+        # R28: el mismo CUPS de 20 caracteres, con y sin sufijo, es un contador.
+        assert [edata_id for edata_id, _ in used] == ["xxxx", "xxxx"]
+
+
+async def test_override_ignored_when_entry_is_auto_linked_to_another_cups(
+    hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
+):
+    matched = make_invoice(
+        estimated=False, number="A1", contract="CT-A", cups="ES0000000000000000AA"
+    )
+    unmatched = make_invoice(
+        estimated=False, number="B1", contract="CT-B", cups="ES0000000000000000BB"
+    )
+    # La entrada guarda el CUPS de 22 caracteres: casa con A por sus 20 primeros.
+    linked = MockConfigEntry(
+        domain="edata", data={"cups": "ES0000000000000000AA1F", "scups": "AAAA"}
+    )
+    linked.add_to_hass(hass)
+    mailbox.add(1, (b"a", matched))
+    mailbox.add(2, (b"b", unmatched))
+    used: list[tuple[str, str]] = []
+
+    with patch(
+        "custom_components.curenergia.coordinator.make_provider",
+        side_effect=_tagging_make_provider(used),
+    ):
+        coordinator = await _setup(hass, edata_entry=linked.entry_id)
+        # R29: la entrada ya es de A; no se usa también para B.
+        assert [edata_id for edata_id, _ in used] == ["aaaa"]
+        assert await coordinator.async_totals_provider(unmatched.cups) is None
+
+    statuses = {
+        contract: data.rows[0].status
+        for contract, data in coordinator.data.contracts.items()
+    }
+    assert statuses["CT-B"] is Status.NO_DATA
+
+
 async def test_override_ignored_with_several_unmatched_contracts(
     hass: HomeAssistant, mailbox: FakeMailbox, make_invoice
 ):
