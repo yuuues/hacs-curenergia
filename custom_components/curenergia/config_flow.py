@@ -29,13 +29,11 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_EDATA_ENTRY,
-    CONF_EUR_THRESHOLD_PCT,
     CONF_FOLDER,
     CONF_KWH_THRESHOLD,
     CONF_SAVE_PDFS,
     CONF_SCAN_HOURS,
     CONF_SHOW_PANEL,
-    DEFAULT_EUR_THRESHOLD_PCT,
     DEFAULT_HOST,
     DEFAULT_KWH_THRESHOLD,
     DEFAULT_PORT,
@@ -175,7 +173,6 @@ class CurenergiaConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_FOLDER: user_input[CONF_FOLDER],
                     CONF_SCAN_HOURS: DEFAULT_SCAN_HOURS,
                     CONF_KWH_THRESHOLD: DEFAULT_KWH_THRESHOLD,
-                    CONF_EUR_THRESHOLD_PCT: DEFAULT_EUR_THRESHOLD_PCT,
                     CONF_SHOW_PANEL: DEFAULT_SHOW_PANEL,
                     CONF_SAVE_PDFS: DEFAULT_SAVE_PDFS,
                     CONF_EDATA_ENTRY: EDATA_AUTO,
@@ -247,7 +244,6 @@ class CurenergiaOptionsFlow(OptionsFlowWithReload):
                     CONF_FOLDER: user_input[CONF_FOLDER],
                     CONF_SCAN_HOURS: int(user_input[CONF_SCAN_HOURS]),
                     CONF_KWH_THRESHOLD: float(user_input[CONF_KWH_THRESHOLD]),
-                    CONF_EUR_THRESHOLD_PCT: float(user_input[CONF_EUR_THRESHOLD_PCT]),
                     CONF_SHOW_PANEL: bool(user_input[CONF_SHOW_PANEL]),
                     CONF_SAVE_PDFS: bool(user_input[CONF_SAVE_PDFS]),
                     CONF_EDATA_ENTRY: user_input[CONF_EDATA_ENTRY],
@@ -288,12 +284,6 @@ class CurenergiaOptionsFlow(OptionsFlowWithReload):
                     CONF_KWH_THRESHOLD,
                     default=current.get(CONF_KWH_THRESHOLD, DEFAULT_KWH_THRESHOLD),
                 ): _number(0, 100, 0.1, "kWh"),
-                vol.Required(
-                    CONF_EUR_THRESHOLD_PCT,
-                    default=current.get(
-                        CONF_EUR_THRESHOLD_PCT, DEFAULT_EUR_THRESHOLD_PCT
-                    ),
-                ): _number(0, 100, 0.1, "%"),
                 vol.Required(
                     CONF_SHOW_PANEL,
                     default=current.get(CONF_SHOW_PANEL, DEFAULT_SHOW_PANEL),

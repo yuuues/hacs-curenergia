@@ -57,7 +57,6 @@
           "folder": "Carpeta",
           "scan_hours": "Intervalo de revisión (horas)",
           "kwh_threshold": "Umbral de kWh",
-          "eur_threshold_pct": "Umbral de importe (%)",
           "show_panel": "Mostrar panel lateral",
           "save_pdfs": "Guardar los PDF de las facturas",
           "edata_entry": "Entrada de e-data"
@@ -66,7 +65,6 @@
           "folder": "Carpeta del buzón donde buscar las facturas.",
           "scan_hours": "Cada cuánto se revisa el buzón, de 1 a 24 horas.",
           "kwh_threshold": "Se marca una factura cuando su consumo difiere del de e-data en más de estos kWh.",
-          "eur_threshold_pct": "Se marca una factura cuando su importe difiere del de e-data en más de este porcentaje.",
           "show_panel": "Muestra el panel de CurEnergía en la barra lateral.",
           "save_pdfs": "Conserva una copia del PDF de cada factura.",
           "edata_entry": "Entrada de e-data con la que comparar. En automático se vincula por punto de suministro (CUPS)."

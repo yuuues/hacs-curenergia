@@ -55,10 +55,12 @@ type TotalsProvider = Callable[[datetime, datetime], Awaitable[Totals | None]]
 
 @dataclass(frozen=True)
 class Thresholds:
-    """Umbrales de marcado (estrictos): kWh absolutos y % de diferencia en €."""
+    """Umbral de marcado (estricto) en kWh absolutos.
+
+    Los € no marcan: Δ € y Δ % se calculan y se muestran solo como información.
+    """
 
     kwh: Decimal
-    eur_pct: Decimal
 
 
 @dataclass(frozen=True)
@@ -182,12 +184,9 @@ async def _compare(
 
 
 def _exceeds(comparison: Comparison, thresholds: Thresholds) -> bool:
-    """Si alguna diferencia supera estrictamente su umbral."""
+    """Si algún Δ kWh (total o por tramo) supera estrictamente el umbral."""
     kwh_deltas = (comparison.delta_kwh, *comparison.delta_periods)
-    if any(d is not None and abs(d) > thresholds.kwh for d in kwh_deltas):
-        return True
-    pct = comparison.delta_pct
-    return pct is not None and abs(pct) > thresholds.eur_pct
+    return any(d is not None and abs(d) > thresholds.kwh for d in kwh_deltas)
 
 
 def _contiguous(group: list[StoredInvoice]) -> bool:
@@ -230,6 +229,10 @@ async def match_contract(
     tz: tzinfo,
 ) -> list[InvoiceRow]:
     """Casa las facturas de un contrato con e-data; filas ordenadas por periodo.
+
+    El estado depende solo de los kWh (total y por tramo frente al umbral en
+    kWh); Δ € y Δ % se calculan pero son informativos y nunca marcan (§9.4).
+    Con la ventana incompleta (R24), un descuadre de kWh pasa a ``sin_datos``.
 
     Reglas de agrupación (D8, R10, R11). Las estimadas (también las ilegibles
     que son estimadas) se acumulan en un grupo pendiente, siempre con estado

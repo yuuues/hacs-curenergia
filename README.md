@@ -26,8 +26,9 @@ Si eres cliente de CurEnergía y tienes en Home Assistant la integración
 - Lee automáticamente los correos de facturas de `noresponder@clientescurenergia.es`
   (IMAP, solo lectura) y extrae del PDF adjunto el periodo, los kWh, el importe,
   el €/kWh y el desglose de conceptos.
-- Para cada factura de **luz**, compara los kWh (total y P1/P2/P3) y los € con los
-  que e-data tiene para las mismas fechas, y la marca como `ok` o `no_cuadra`.
+- Para cada factura de **luz**, compara los kWh (total y P1/P2/P3) con los que
+  e-data tiene para las mismas fechas, y la marca como `ok` o `no_cuadra`; los €
+  se comparan también, pero solo como información.
 - Las facturas de **gas** se muestran sin casar (Datadis no tiene gas).
 - No tienes que descargar ni subir PDFs a mano. No modifica el buzón: no marca,
   mueve ni borra correos.
@@ -107,12 +108,12 @@ valer, Home Assistant te pide reautenticarte.
 | Carpeta | la elegida | Carpeta del buzón. Cambiarla descarta el estado guardado del buzón y se lee desde cero. |
 | Intervalo de revisión (horas) | 6 | Cada cuánto se mira el buzón (1–24). |
 | Umbral de kWh | 1 | Se marca si la diferencia es **mayor** que este valor. |
-| Umbral de importe (%) | 2 | Se marca si la diferencia en € es **mayor** que este porcentaje. |
 | Mostrar panel lateral | sí | Muestra el panel «Facturas» en la barra lateral (solo administradores). Ver [Tarjeta y panel](#tarjeta-y-panel). |
 | Guardar los PDF de las facturas | no | Guarda una copia (ver abajo). |
 | Entrada de e-data | automático | Con qué entrada de e-data comparar. |
 
-Los umbrales son estrictos: una diferencia **igual** al umbral no se marca.
+El umbral es estricto: una diferencia **igual** al umbral no se marca. Si tu instalación
+tenía el antiguo umbral de importe (%), se ignora.
 
 **Guardar PDFs.** Si se activa, cada factura nueva se guarda como
 `config/curenergia/<número de factura>.pdf`. Solo se guardan los números de factura
@@ -221,8 +222,8 @@ El botón **Buscar facturas ahora** lee el buzón sin esperar al sondeo.
 
 | Estado | Significado |
 |---|---|
-| `ok` | La factura cuadra con e-data dentro de los umbrales. |
-| `no_cuadra` | El total de kWh, algún tramo P1/P2/P3 o el importe difieren de e-data por encima del umbral. |
+| `ok` | La factura cuadra con e-data dentro del umbral de kWh. |
+| `no_cuadra` | El total de kWh o algún tramo P1/P2/P3 difieren de e-data por encima del umbral de kWh. Los € no marcan. |
 | `estimada` | La factura es de lectura estimada. **Nunca se marca**: las estimadas son normales y se regularizan en la siguiente factura real. |
 | `sin_datos` | No se puede comparar: no hay e-data, Datadis no cubre las fechas de la factura, falta la factura anterior o no se puede cerrar con seguridad el grupo de estimadas (ver más abajo). También cuando habría una diferencia pero a e-data le faltan horas. |
 | `no_leida` | La comprobación interna del PDF falló (las sumas no cuadran). Indica un fallo del lector, no de CurEnergía. |
@@ -243,7 +244,7 @@ final. El cambio de hora (octubre/marzo) se tiene en cuenta. Si no se cumple, el
 estado es `sin_datos`.
 
 **Datos incompletos nunca dan `no_cuadra`.** Si a e-data le falta alguna hora
-dentro de la ventana (aunque esté cubierta), una diferencia por encima del umbral
+dentro de la ventana (aunque esté cubierta), una diferencia de kWh por encima del umbral
 se muestra como `sin_datos`, porque puede deberse a esas horas; si la diferencia
 está dentro del umbral, queda `ok`. Los costes de e-data solo se usan si
 `power_cost` y `energy_cost` cumplen la misma regla de cobertura; si no, la parte en
@@ -275,8 +276,13 @@ y se compara con `power_cost + energy_cost` de e-data: Δ € = factura_€ − 
 Δ % = Δ € / e-data_€ × 100. El bono social, el alquiler del contador, los intereses
 de demora y otros conceptos no entran.
 
+**La comparación en € es solo informativa y no marca la factura.** Con datos reales
+salía de forma sistemática entre un 2 % y un 3 % por debajo de e-data (que usa los
+precios que tengas configurados allí) y producía falsos `no_cuadra`; el estado
+depende solo de los kWh.
+
 - **Necesita la facturación activada en e-data.** Sin ella no existen los costes: la
-  parte en € no se calcula y no cuenta para el marcado (los kWh sí se comparan).
+  parte en € no se calcula (los kWh sí se comparan).
 - **Si cambiaste las fórmulas de coste de e-data** (impuestos, precios), la
   comparación en € pierde sentido.
 

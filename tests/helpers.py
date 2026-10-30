@@ -17,7 +17,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.curenergia.const import (
     CONF_EDATA_ENTRY,
-    CONF_EUR_THRESHOLD_PCT,
     CONF_FOLDER,
     CONF_KWH_THRESHOLD,
     CONF_SAVE_PDFS,
@@ -64,7 +63,6 @@ def make_entry(**options: Any) -> MockConfigEntry:
             CONF_FOLDER: "INBOX",
             CONF_SCAN_HOURS: 6,
             CONF_KWH_THRESHOLD: 1.0,
-            CONF_EUR_THRESHOLD_PCT: 2.0,
             CONF_SHOW_PANEL: True,
             CONF_SAVE_PDFS: False,
             CONF_EDATA_ENTRY: EDATA_AUTO,

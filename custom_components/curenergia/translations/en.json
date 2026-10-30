@@ -57,7 +57,6 @@
           "folder": "Folder",
           "scan_hours": "Check interval (hours)",
           "kwh_threshold": "kWh threshold",
-          "eur_threshold_pct": "Amount threshold (%)",
           "show_panel": "Show side panel",
           "save_pdfs": "Save invoice PDFs",
           "edata_entry": "e-data entry"
@@ -66,7 +65,6 @@
           "folder": "Mailbox folder to search for invoices.",
           "scan_hours": "How often the mailbox is checked, from 1 to 24 hours.",
           "kwh_threshold": "An invoice is flagged when its consumption differs from e-data by more than this many kWh.",
-          "eur_threshold_pct": "An invoice is flagged when its amount differs from e-data by more than this percentage.",
           "show_panel": "Show the CurEnergía panel in the sidebar.",
           "save_pdfs": "Keep a copy of each invoice PDF.",
           "edata_entry": "e-data entry to compare against. Automatic links it by supply point (CUPS)."

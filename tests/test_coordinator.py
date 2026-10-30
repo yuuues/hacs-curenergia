@@ -142,6 +142,19 @@ def _batched_mailbox(mailbox: FakeMailbox, make_invoice) -> tuple[str, str]:
     return first.number, last.number
 
 
+async def test_entry_with_legacy_eur_threshold_option_loads(
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, fixture_invoice
+):
+    """Una entrada antigua con ``eur_threshold_pct`` en las opciones se ignora."""
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    mailbox.add(1, (b"pdf-luz", elec), email_total=elec.total)
+
+    coordinator = await _setup(hass, eur_threshold_pct=2.0)
+
+    assert set(coordinator.store.invoices) == {elec.number}
+    assert coordinator.last_update_success
+
+
 async def test_first_sync_downloads_in_batches(
     hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, make_invoice
 ):

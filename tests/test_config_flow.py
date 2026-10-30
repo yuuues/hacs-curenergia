@@ -16,7 +16,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.curenergia.const import (
     CONF_EDATA_ENTRY,
-    CONF_EUR_THRESHOLD_PCT,
     CONF_FOLDER,
     CONF_KWH_THRESHOLD,
     CONF_SAVE_PDFS,
@@ -97,7 +96,6 @@ def _entry(**options) -> MockConfigEntry:
             CONF_FOLDER: "CurEnergia",
             CONF_SCAN_HOURS: 6,
             CONF_KWH_THRESHOLD: 1.0,
-            CONF_EUR_THRESHOLD_PCT: 2.0,
             CONF_SHOW_PANEL: True,
             CONF_SAVE_PDFS: False,
             CONF_EDATA_ENTRY: "auto",
@@ -143,7 +141,6 @@ async def test_user_flow_creates_entry(hass, mail_client, setup_entry):
         CONF_FOLDER: "CurEnergia",
         CONF_SCAN_HOURS: 6,
         CONF_KWH_THRESHOLD: 1.0,
-        CONF_EUR_THRESHOLD_PCT: 2.0,
         CONF_SHOW_PANEL: True,
         CONF_SAVE_PDFS: False,
         CONF_EDATA_ENTRY: "auto",
@@ -293,6 +290,7 @@ async def test_options_flow(hass, mail_client, setup_entry):
     assert isinstance(schema[CONF_FOLDER], SelectSelector)
     edata_options = [o["value"] for o in schema[CONF_EDATA_ENTRY].config["options"]]
     assert edata_options == ["auto", "edata-1"]
+    assert "eur_threshold_pct" not in schema
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -300,7 +298,6 @@ async def test_options_flow(hass, mail_client, setup_entry):
             CONF_FOLDER: "INBOX",
             CONF_SCAN_HOURS: 12,
             CONF_KWH_THRESHOLD: 0.5,
-            CONF_EUR_THRESHOLD_PCT: 3.5,
             CONF_SHOW_PANEL: False,
             CONF_SAVE_PDFS: True,
             CONF_EDATA_ENTRY: "edata-1",
@@ -311,7 +308,6 @@ async def test_options_flow(hass, mail_client, setup_entry):
         CONF_FOLDER: "INBOX",
         CONF_SCAN_HOURS: 12,
         CONF_KWH_THRESHOLD: 0.5,
-        CONF_EUR_THRESHOLD_PCT: 3.5,
         CONF_SHOW_PANEL: False,
         CONF_SAVE_PDFS: True,
         CONF_EDATA_ENTRY: "edata-1",
@@ -319,6 +315,33 @@ async def test_options_flow(hass, mail_client, setup_entry):
     assert isinstance(entry.options[CONF_SCAN_HOURS], int)
     await hass.async_block_till_done()
     _assert_reloaded(entry, setup_entry)
+
+
+async def test_entry_with_legacy_eur_threshold_option_still_works(
+    hass, mail_client, setup_entry
+):
+    """Las entradas antiguas conservan ``eur_threshold_pct``: se ignora."""
+    entry = _entry(eur_threshold_pct=2.0)
+    await _load_entry(hass, entry, setup_entry)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert "eur_threshold_pct" not in _schema(result)
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_FOLDER: "INBOX",
+            CONF_SCAN_HOURS: 6,
+            CONF_KWH_THRESHOLD: 1.0,
+            CONF_SHOW_PANEL: True,
+            CONF_SAVE_PDFS: False,
+            CONF_EDATA_ENTRY: "auto",
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert "eur_threshold_pct" not in entry.options
+    await hass.async_block_till_done()
 
 
 async def test_options_flow_keeps_unlisted_values_selectable(
@@ -355,7 +378,6 @@ async def test_options_flow_folders_unavailable(hass, mail_client, setup_entry):
             CONF_FOLDER: "Facturas/Energía",
             CONF_SCAN_HOURS: 6,
             CONF_KWH_THRESHOLD: 1.0,
-            CONF_EUR_THRESHOLD_PCT: 2.0,
             CONF_SHOW_PANEL: True,
             CONF_SAVE_PDFS: False,
             CONF_EDATA_ENTRY: "auto",

@@ -22,7 +22,7 @@ from custom_components.curenergia.storage import StoredInvoice, build_stored
 from tests.helpers import load_fixture_invoice, make_invoice
 
 MADRID = ZoneInfo("Europe/Madrid")
-THRESHOLDS = Thresholds(kwh=Decimal(1), eur_pct=Decimal(2))
+THRESHOLDS = Thresholds(kwh=Decimal(1))
 D = Decimal
 
 
@@ -210,27 +210,29 @@ def eur_invoice(amount):
     )
 
 
-async def test_eur_over_pct_threshold_is_mismatch():
-    r = eur_invoice("102.01")
-    [row] = await run([r], {window_of(r): totals(100, eur=100)})
-    assert row.status is Status.MISMATCH
-    assert row.comparison.invoice_eur == D("102.01")
-    assert row.comparison.delta_eur == D("2.01")
-    assert row.comparison.delta_pct == D("2.01")
-
-
-async def test_eur_equal_to_pct_threshold_is_ok():
-    r = eur_invoice("102.00")
-    [row] = await run([r], {window_of(r): totals(100, eur=100)})
+async def test_eur_delta_is_informational_and_never_marks():
+    """Δ € y Δ % se calculan y se muestran, pero no deciden el estado."""
+    r = eur_invoice("110")
+    [row] = await run([r], {window_of(r): totals("99.5", eur=100)})
     assert row.status is Status.OK
-    assert row.comparison.delta_pct == D("2")
+    assert row.comparison.delta_kwh == D("0.5")
+    assert row.comparison.delta_eur == D(10)
+    assert row.comparison.delta_pct == D(10)
 
 
-async def test_negative_eur_delta_over_threshold_is_mismatch():
+async def test_negative_eur_delta_is_informational():
     r = eur_invoice("97.00")
     [row] = await run([r], {window_of(r): totals(100, eur=100)})
-    assert row.status is Status.MISMATCH
+    assert row.status is Status.OK
     assert row.comparison.delta_pct == D("-3")
+
+
+async def test_kwh_over_threshold_marks_even_with_matching_eur():
+    r = eur_invoice("100")
+    [row] = await run([r], {window_of(r): totals("98.5", eur=100)})
+    assert row.status is Status.MISMATCH
+    assert row.comparison.delta_kwh == D("1.5")
+    assert row.comparison.delta_pct == D(0)
 
 
 async def test_missing_edata_costs_ignored():
@@ -265,10 +267,17 @@ async def test_incomplete_window_over_threshold_is_no_data():
     assert row.comparison.delta_kwh == D(-50)
 
 
-async def test_incomplete_window_eur_over_threshold_is_no_data():
+async def test_incomplete_window_kwh_over_threshold_is_no_data():
+    r = eur_invoice("100")
+    [row] = await run([r], {window_of(r): totals("98.5", eur=100, complete=False)})
+    assert row.status is Status.NO_DATA
+    assert row.comparison.delta_kwh == D("1.5")
+
+
+async def test_incomplete_window_with_only_eur_delta_is_ok():
     r = eur_invoice("110")
     [row] = await run([r], {window_of(r): totals(100, eur=100, complete=False)})
-    assert row.status is Status.NO_DATA
+    assert row.status is Status.OK
 
 
 async def test_incomplete_window_within_threshold_is_ok():

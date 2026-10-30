@@ -27,7 +27,6 @@ from pycurenergia import __version__ as LIB_VERSION
 
 from .const import (
     CONF_EDATA_ENTRY,
-    CONF_EUR_THRESHOLD_PCT,
     CONF_FOLDER,
     CONF_KWH_THRESHOLD,
     CONF_SAVE_PDFS,
@@ -388,10 +387,7 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
             by_contract[stored.invoice.contract].append(stored)
 
         options = self.config_entry.options
-        thresholds = Thresholds(
-            kwh=Decimal(str(options[CONF_KWH_THRESHOLD])),
-            eur_pct=Decimal(str(options[CONF_EUR_THRESHOLD_PCT])),
-        )
+        thresholds = Thresholds(kwh=Decimal(str(options[CONF_KWH_THRESHOLD])))
         tz = dt_util.get_default_time_zone()
         supplies = {
             contract: invoices[0].invoice.supply
