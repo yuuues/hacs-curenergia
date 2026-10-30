@@ -6,6 +6,7 @@ on:
       - "custom_components/**"
       - "tests/**"
       - "lib/**"
+      - "frontend/**"
       - "pyproject.toml"
       - "uv.lock"
       - "hacs.json"
@@ -15,6 +16,7 @@ on:
       - "custom_components/**"
       - "tests/**"
       - "lib/**"
+      - "frontend/**"
       - "pyproject.toml"
       - "uv.lock"
       - "hacs.json"
@@ -64,3 +66,23 @@ jobs:
       - run: uv run --locked --group ha pytest --cov=custom_components.curenergia --cov-report=term-missing --cov-fail-under=95
       # config-flow-test-coverage (Bronze): config_flow.py at 100 %.
       - run: uv run --locked --group ha pytest tests/test_config_flow.py --cov=custom_components.curenergia.config_flow --cov-report=term-missing --cov-fail-under=100
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # The bundle is versioned: fail if it is not up to date with the sources.
+      - run: git diff --exit-code -- custom_components/curenergia/frontend/
+        working-directory: .
