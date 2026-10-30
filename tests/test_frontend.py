@@ -16,7 +16,7 @@ pytestmark = pytest.mark.usefixtures(
     "recorder_mock", "enable_custom_integrations", "mailbox"
 )
 
-MODULE_URL = "/curenergia_static/curenergia.js?v=0.2.0"
+MODULE_URL = "/curenergia_static/curenergia.js?v=0.2.1"
 
 
 def _second_entry(**options) -> MockConfigEntry:
