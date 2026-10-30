@@ -29,7 +29,7 @@ from custom_components.curenergia.coordinator import (
 )
 from custom_components.curenergia.mail import MailConnectionError
 from custom_components.curenergia.matching import InvoiceRow, Status, Totals
-from custom_components.curenergia.storage import MailState, build_stored
+from custom_components.curenergia.storage import InvoiceStore, MailState, build_stored
 
 from .helpers import (
     ENTRY_DATA,
@@ -562,8 +562,38 @@ def _stored_payload(entry_id: str, *invoices) -> dict:
                 inv.number: build_stored(inv, None).to_dict() for inv in invoices
             },
             "mail": {"uidvalidity": 1, "folder": "INBOX", "seen": [1]},
+            "readings_backfilled": True,
         },
     }
+
+
+async def test_stored_invoices_get_their_readings_once(
+    hass: HomeAssistant, hass_storage, mailbox: FakeMailbox, fixture_invoice
+):
+    gas = fixture_invoice("gas_2026-09")
+    without = replace(gas, reading_m3=None, previous_reading_m3=None)
+    entry = make_entry()
+    payload = _stored_payload(entry.entry_id, without)
+    del payload["data"]["readings_backfilled"]
+    hass_storage[STORE_KEY.format(entry.entry_id)] = payload
+    mailbox.add(1, (b"gas", gas))
+
+    await setup_entry(hass, entry)
+
+    coordinator = entry.runtime_data
+    # Se vuelve a leer el correo ya visto, sin duplicar la factura.
+    assert mailbox.calls == [("INBOX", frozenset(), None)]
+    assert mailbox.parsed == [b"gas"]
+    assert list(coordinator.store.invoices) == [gas.number]
+    assert coordinator.store.invoices[gas.number].invoice.reading_m3 == gas.reading_m3
+    assert coordinator.store.mail.seen == {1}
+    await coordinator.store.async_save()
+    assert hass_storage[STORE_KEY.format(entry.entry_id)]["data"]["readings_backfilled"]
+
+    # Solo una vez: un nuevo arranque ya no relee nada.
+    reloaded = InvoiceStore(hass, entry.entry_id)
+    await reloaded.async_load()
+    assert reloaded.mail.seen == {1}
 
 
 @pytest.mark.parametrize(

@@ -17,7 +17,7 @@ pytestmark = pytest.mark.usefixtures("recorder_mock", "enable_custom_integration
 
 async def test_manifest_loads(hass):
     integration = await async_get_integration(hass, DOMAIN)
-    assert integration.requirements == ["pycurenergia==0.1.0"]
+    assert integration.requirements == ["pycurenergia==0.2.0"]
     assert integration.config_flow is True
 
 

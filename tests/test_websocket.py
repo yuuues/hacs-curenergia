@@ -35,6 +35,7 @@ ROW_KEYS = {
     "m3",
     "energy_price_kwh",
     "periods",
+    "meter",
     "concepts",
     "vat",
     "in_group_of",
@@ -149,6 +150,13 @@ async def test_ws_invoices_shape(
         "m3": None,
         "energy_price_kwh": 0.1395,
         "periods": {"p1": 107.11, "p2": 104.16, "p3": 168.79},
+        "meter": {
+            "read_on": "2026-09-28",
+            "estimated": False,
+            "m3": None,
+            "periods": {"p1": 10000.0, "p2": 20000.0, "p3": 30000.0},
+            "previous": None,
+        },
         "concepts": [
             {"key": c.key.value, "label": c.label, "amount": money(c.amount)}
             for c in latest.concepts
@@ -186,8 +194,35 @@ async def test_ws_invoices_shape(
     assert gas_row["m3"] == 13.0
     assert gas_row["energy_price_kwh"] == price(gas.energy_price_kwh) == 0.0433
     assert gas_row["periods"] is None
+    assert gas_row["meter"] == {
+        "read_on": "2026-09-07",
+        "estimated": True,
+        "m3": 1013.0,
+        "periods": None,
+        "previous": {"read_on": "2026-07-07", "estimated": False, "m3": 1000.0},
+    }
     assert gas_row["comparison"] is None
     assert gas_row["total"] == 19.2
+
+
+async def test_ws_invoices_without_meter_reading(
+    hass: HomeAssistant, hass_ws_client, mailbox: FakeMailbox, make_invoice
+):
+    mailbox.add(
+        1,
+        (
+            b"luz",
+            make_invoice(reading_p1=None, reading_p2=None, reading_p3=None),
+        ),
+    )
+    entry = make_entry()
+    await setup_entry(hass, entry)
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": "curenergia/invoices"})
+    response = await client.receive_json()
+
+    assert response["result"]["contracts"][0]["invoices"][0]["meter"] is None
 
 
 async def test_ws_invoices_without_comparison(

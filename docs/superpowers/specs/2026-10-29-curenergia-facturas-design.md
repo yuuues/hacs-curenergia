@@ -223,7 +223,8 @@ Un único componente de tabla compartido por la tarjeta y el panel **(mío)**:
 - Pestañas **Luz / Gas**.
 - Columnas de luz: periodo · kWh factura · kWh Datadis · Δ kWh · importe · Δ €. Columnas de gas: periodo · kWh · m³ · importe · €/kWh. **Decisión del usuario sobre las columnas de luz:** no hay columna «€ e-data», porque no se puede restar del importe total de la factura; «Importe» es el total de la factura y «Δ €» es la diferencia en potencia + energía, que es la parte de la factura que se puede comparar con e-data (§9). El detalle desplegable muestra «Potencia + energía: factura X € / e-data Y €» y el Δ %.
 - Color de la diferencia según el estado: verde ok, ámbar no cuadra, gris estimada, sin datos y gas, rojo no leída. Etiqueta "estimada" y "no se pudo leer".
-- Fila desplegable con el desglose de conceptos de la factura y P1/P2/P3 (factura / Datadis). Si la factura se compara en grupo (una real tras estimadas), el detalle separa «Esta factura» de «Comparación del grupo».
+- Recuadro «Última lectura facturada» encima de la tabla, por contrato: la lectura de la factura más reciente que la traiga y no sea ilegible, con fecha y real/estimada; en gas, m³ con la anterior y la diferencia; en luz, kWh por periodo. La aplicación no pide ni guarda lo que marca el contador ahora.
+- Fila desplegable con el desglose de conceptos de la factura y P1/P2/P3 (factura / Datadis). Incluye también las lecturas de esa factura, si las trae. Si la factura se compara en grupo (una real tras estimadas), el detalle separa «Esta factura» de «Comparación del grupo».
 
 **Tarjeta** `custom:curenergia-invoices-card`: el JS lo sirve y registra la propia integración (rutas estáticas + `add_extra_js_url`), sin añadir recursos a mano ni instalar nada aparte en HACS **(mío)**. La tarjeta tiene **editor visual** (decisión del usuario): título, pestaña inicial, número máximo de facturas (1–60, por defecto 6) y cuenta de correo opcional.
 

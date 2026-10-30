@@ -13,7 +13,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
-from pycurenergia import SupplyType
+from pycurenergia import Invoice, MeterReading, SupplyType
 
 from .const import DOMAIN
 from .coordinator import CurenergiaConfigEntry
@@ -156,6 +156,36 @@ def _periods(values: Periods) -> dict[str, float | None]:
     return {"p1": p1, "p2": p2, "p3": p3}
 
 
+def _reading_value(reading: MeterReading | None) -> Decimal | None:
+    return None if reading is None else reading.value
+
+
+def _meter(invoice: Invoice) -> dict[str, Any] | None:
+    """Lecturas del contador de la factura; ``None`` si no trae la actual."""
+    gas = invoice.reading_m3
+    by_period = (invoice.reading_p1, invoice.reading_p2, invoice.reading_p3)
+    current = gas or next((r for r in by_period if r is not None), None)
+    if current is None:
+        return None
+    previous = invoice.previous_reading_m3
+    p1, p2, p3 = (_reading_value(reading) for reading in by_period)
+    return {
+        "read_on": current.read_on.isoformat(),
+        "estimated": current.estimated,
+        "m3": money(_reading_value(gas)),
+        "periods": None if gas is not None else _periods((p1, p2, p3)),
+        "previous": (
+            None
+            if previous is None
+            else {
+                "read_on": previous.read_on.isoformat(),
+                "estimated": previous.estimated,
+                "m3": money(previous.value),
+            }
+        ),
+    }
+
+
 def _row(row: InvoiceRow) -> dict[str, Any]:
     stored = row.stored
     invoice = stored.invoice
@@ -179,6 +209,7 @@ def _row(row: InvoiceRow) -> dict[str, Any]:
             if all(value is None for value in kwh_periods)
             else _periods(kwh_periods)
         ),
+        "meter": _meter(invoice),
         "concepts": [
             {"key": c.key.value, "label": c.label, "amount": money(c.amount)}
             for c in invoice.concepts

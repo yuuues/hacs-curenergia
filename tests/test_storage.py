@@ -1,6 +1,7 @@
 """Tests del almacenamiento de facturas y del estado del buzón."""
 
 import json
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -73,6 +74,60 @@ def test_build_stored_includes_consistency_problems(make_invoice):
     assert "total_mismatch" in stored.problems
     assert stored.unreadable is True
     assert all(isinstance(p, str) for p in stored.problems)
+
+
+def test_invoice_without_reading_keys_loads_as_none(fixture_invoice):
+    data = invoice_to_dict(fixture_invoice("gas_2026-09"))
+    del data["reading_m3"]
+    del data["previous_reading_m3"]
+
+    invoice = invoice_from_dict(data)
+
+    assert invoice.reading_m3 is None
+    assert invoice.previous_reading_m3 is None
+
+
+async def test_add_only_replaces_to_complete_readings(
+    hass: HomeAssistant, fixture_invoice
+):
+    gas = fixture_invoice("gas_2026-09")
+    without = build_stored(
+        replace(gas, reading_m3=None, previous_reading_m3=None), None
+    )
+    complete = build_stored(gas, None)
+    store = InvoiceStore(hass, ENTRY_ID)
+
+    assert store.add(without) is True
+    # Sin lecturas tampoco sustituye a otra sin lecturas.
+    assert store.add(build_stored(without.invoice, Decimal("1.00"))) is False
+    assert store.invoices[gas.number] is without
+    assert store.add(complete) is False
+    assert store.invoices[gas.number] is complete
+    # Una factura con lecturas ya no se toca.
+    assert store.add(without) is False
+    assert store.invoices[gas.number] is complete
+
+
+async def test_load_resets_mail_once_when_invoices_lack_the_backfill_mark(
+    hass: HomeAssistant, hass_storage, fixture_invoice
+):
+    store = InvoiceStore(hass, ENTRY_ID)
+    await store.async_load()
+    store.add(build_stored(fixture_invoice("gas_2026-09"), None))
+    store.mail.uidvalidity = 7
+    store.mail.seen = {1, 2}
+    await store.async_save()
+    assert hass_storage[STORE_KEY]["data"]["readings_backfilled"] is True
+
+    kept = InvoiceStore(hass, ENTRY_ID)
+    await kept.async_load()
+    assert kept.mail.seen == {1, 2}
+
+    del hass_storage[STORE_KEY]["data"]["readings_backfilled"]
+    reset = InvoiceStore(hass, ENTRY_ID)
+    await reset.async_load()
+    assert reset.mail == MailState()
+    assert len(reset.invoices) == 1
 
 
 async def test_store_persists_and_deduplicates(

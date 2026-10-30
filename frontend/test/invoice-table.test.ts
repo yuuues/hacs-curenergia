@@ -60,6 +60,7 @@ function row(number: string, end: string, overrides: Partial<InvoiceRow> = {}): 
     ],
     vat: { rate: 21, base: 52, amount: 10.92 },
     in_group_of: null,
+    meter: null,
     comparison: comparison(),
     ...overrides,
   };
@@ -532,5 +533,127 @@ describe("every status renders", () => {
       contracts: [contract("electricity", [row("F-1", "2026-07-31", { status })])],
     });
     expect(bodyRows(el)).toHaveLength(1);
+  });
+});
+
+const gasMeter = {
+  read_on: "2026-09-07",
+  estimated: true,
+  m3: 10130,
+  periods: null,
+  previous: { read_on: "2026-07-07", estimated: false, m3: 10000 },
+};
+const lightMeter = {
+  read_on: "2026-09-28",
+  estimated: false,
+  m3: null,
+  periods: periods(10000, 20000, 30000),
+  previous: null,
+};
+const meterBox = (el: HTMLElement) => root(el).querySelector<HTMLElement>(".meter");
+const text = (el: Element | null | undefined) => el?.textContent?.replace(/\s+/g, " ").trim();
+
+describe("meter readings", () => {
+  it("shows the gas reading, its date and the difference with the previous one", async () => {
+    const el = await mount({
+      supply: "gas",
+      contracts: [contract("gas", [gasRow("G-1", "2026-09-07", { meter: gasMeter })])],
+    });
+
+    const box = text(meterBox(el));
+    expect(box).toContain("Última lectura facturada");
+    expect(box).toContain("10.130 m³");
+    expect(box).toContain("estimada");
+    expect(box).toContain("07/09/2026");
+    expect(box).toContain("130 m³ desde la anterior (10.000 m³, real, 07/07/2026)");
+  });
+
+  it("shows the three electricity readings without a previous one", async () => {
+    const el = await mount({
+      contracts: [contract("electricity", [row("F-1", "2026-09-28", { meter: lightMeter })])],
+    });
+
+    const box = text(meterBox(el));
+    expect(box).toContain("P1 (punta) 10.000 kWh");
+    expect(box).toContain("P2 (llano) 20.000 kWh");
+    expect(box).toContain("P3 (valle) 30.000 kWh");
+    expect(box).toContain("real");
+    expect(box).toContain("28/09/2026");
+    expect(box).not.toContain("desde la anterior");
+  });
+
+  it("uses the newest readable invoice that has a reading, whatever the row limit", async () => {
+    const el = await mount({
+      supply: "gas",
+      maxInvoices: 1,
+      contracts: [
+        contract("gas", [
+          gasRow("G-3", "2026-11-07", { status: "no_leida", meter: { ...gasMeter, m3: 99999 } }),
+          gasRow("G-2", "2026-10-07", { meter: null }),
+          gasRow("G-1", "2026-09-07", { meter: gasMeter }),
+        ]),
+      ],
+    });
+
+    expect(text(meterBox(el))).toContain("10.130 m³");
+    expect(text(meterBox(el))).not.toContain("99.999");
+  });
+
+  it("shows one box per contract and none without readings", async () => {
+    const el = await mount({
+      supply: "gas",
+      contracts: [
+        contract("gas", [gasRow("G-1", "2026-09-07", { meter: gasMeter })], "Casa", "C1"),
+        contract("gas", [gasRow("G-2", "2026-09-07")], "Oficina", "C2"),
+      ],
+    });
+
+    expect(root(el).querySelectorAll(".meter")).toHaveLength(1);
+  });
+
+  it("renders no box when the websocket does not send the field", async () => {
+    const legacy = gasRow("G-1", "2026-09-07");
+    delete (legacy as Partial<InvoiceRow>).meter;
+    const el = await mount({ supply: "gas", contracts: [contract("gas", [legacy])] });
+
+    expect(meterBox(el)).toBeNull();
+  });
+
+  it("shows the gas readings of an invoice in its detail", async () => {
+    const el = await mount({
+      supply: "gas",
+      contracts: [contract("gas", [gasRow("G-1", "2026-09-07", { meter: gasMeter })])],
+    });
+
+    bodyRows(el)[0]!.click();
+    await el.updateComplete;
+
+    const detail = text(root(el).querySelector("tr.detail"));
+    expect(detail).toContain("Lectura actual (estimada, 07/09/2026)10.130 m³");
+    expect(detail).toContain("Lectura anterior (real, 07/07/2026) 10.000 m³");
+  });
+
+  it("shows the electricity readings of an invoice in its detail", async () => {
+    const el = await mount({
+      contracts: [contract("electricity", [row("F-1", "2026-09-28", { meter: lightMeter })])],
+    });
+
+    bodyRows(el)[0]!.click();
+    await el.updateComplete;
+
+    const detail = text(root(el).querySelector("tr.detail"));
+    expect(detail).toContain("Lectura actual (real, 28/09/2026)");
+    expect(detail).toContain("P2 (llano) 20.000 kWh");
+  });
+
+  it("omits the readings from the detail when the invoice has none", async () => {
+    const el = await mount({
+      contracts: [contract("electricity", [row("F-1", "2026-09-28")])],
+    });
+
+    bodyRows(el)[0]!.click();
+    await el.updateComplete;
+
+    expect(text(root(el).querySelector("tr.detail"))).not.toContain("Lectura actual");
   });
 });

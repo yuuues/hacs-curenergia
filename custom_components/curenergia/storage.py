@@ -14,6 +14,7 @@ from pycurenergia import (
     Concept,
     ConceptKey,
     Invoice,
+    MeterReading,
     SupplyType,
     check_consistency,
 )
@@ -33,6 +34,40 @@ def _dec(value: str | None) -> Decimal | None:
 
 def _str(value: Decimal | None) -> str | None:
     return None if value is None else str(value)
+
+
+def _reading_to_dict(reading: MeterReading | None) -> dict[str, Any] | None:
+    if reading is None:
+        return None
+    return {
+        "value": str(reading.value),
+        "read_on": reading.read_on.isoformat(),
+        "estimated": reading.estimated,
+    }
+
+
+def _reading_from_dict(data: dict[str, Any] | None) -> MeterReading | None:
+    if data is None:
+        return None
+    return MeterReading(
+        value=Decimal(data["value"]),
+        read_on=date.fromisoformat(data["read_on"]),
+        estimated=data["estimated"],
+    )
+
+
+def has_readings(invoice: Invoice) -> bool:
+    """Si la factura trae alguna lectura del contador."""
+    return any(
+        reading is not None
+        for reading in (
+            invoice.reading_p1,
+            invoice.reading_p2,
+            invoice.reading_p3,
+            invoice.reading_m3,
+            invoice.previous_reading_m3,
+        )
+    )
 
 
 def invoice_to_dict(invoice: Invoice) -> dict[str, Any]:
@@ -64,6 +99,11 @@ def invoice_to_dict(invoice: Invoice) -> dict[str, Any]:
         "contracted_power_kw": [str(p) for p in invoice.contracted_power_kw],
         "late_interest": str(invoice.late_interest),
         "energy_price_kwh": _str(invoice.energy_price_kwh),
+        "reading_p1": _reading_to_dict(invoice.reading_p1),
+        "reading_p2": _reading_to_dict(invoice.reading_p2),
+        "reading_p3": _reading_to_dict(invoice.reading_p3),
+        "reading_m3": _reading_to_dict(invoice.reading_m3),
+        "previous_reading_m3": _reading_to_dict(invoice.previous_reading_m3),
     }
 
 
@@ -100,6 +140,11 @@ def invoice_from_dict(data: dict[str, Any]) -> Invoice:
         contracted_power_kw=tuple(Decimal(p) for p in data["contracted_power_kw"]),
         late_interest=Decimal(data["late_interest"]),
         energy_price_kwh=_dec(data.get("energy_price_kwh")),
+        reading_p1=_reading_from_dict(data.get("reading_p1")),
+        reading_p2=_reading_from_dict(data.get("reading_p2")),
+        reading_p3=_reading_from_dict(data.get("reading_p3")),
+        reading_m3=_reading_from_dict(data.get("reading_m3")),
+        previous_reading_m3=_reading_from_dict(data.get("previous_reading_m3")),
     )
 
 
@@ -213,14 +258,24 @@ class InvoiceStore:
             return
         self.invoices = invoices
         self.mail = mail
+        # Facturas guardadas antes de que existieran las lecturas del contador:
+        # se vuelve a leer el buzón una vez para completarlas.
+        if invoices and not data.get("readings_backfilled"):
+            self.reset_mail()
 
     def add(self, stored: StoredInvoice) -> bool:
-        """Guarda la factura; ``False`` si ya existía ese número (no se reemplaza)."""
+        """Guarda la factura; ``False`` si ya existía ese número.
+
+        Una factura existente solo se reemplaza para completar sus lecturas.
+        """
         number = stored.invoice.number
-        if number in self.invoices:
-            return False
-        self.invoices[number] = stored
-        return True
+        existing = self.invoices.get(number)
+        if existing is None:
+            self.invoices[number] = stored
+            return True
+        if not has_readings(existing.invoice) and has_readings(stored.invoice):
+            self.invoices[number] = stored
+        return False
 
     def reset_mail(self) -> None:
         """Olvida el estado del buzón (las facturas guardadas se conservan)."""
@@ -232,6 +287,7 @@ class InvoiceStore:
             {
                 "invoices": {n: s.to_dict() for n, s in self.invoices.items()},
                 "mail": self.mail.to_dict(),
+                "readings_backfilled": True,
             }
         )
 

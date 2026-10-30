@@ -29,6 +29,7 @@ function invoice(
     concepts: [],
     vat: { rate: null, base: null, amount: null },
     in_group_of: null,
+    meter: null,
     comparison:
       edata === null
         ? null

@@ -148,6 +148,11 @@ La tarjeta y el panel comparten la misma tabla, con pestañas **Luz** y **Gas**:
   factura y e-data (ver [Cómo se comparan los €](#cómo-se-comparan-los-)); por eso no
   hay una columna «€ e-data»: no se puede restar del total.
 - **Gas:** Periodo · kWh · m³ · Importe · €/kWh. No se casa con Datadis.
+- **Última lectura facturada:** encima de la tabla, un recuadro por contrato con la
+  lectura del contador de su factura más reciente que la traiga, su fecha y si es real
+  o estimada. En gas, en m³, con la lectura anterior y la diferencia; en luz, en kWh
+  por periodo P1/P2/P3 (la factura de luz no trae la lectura anterior). Es lo
+  **facturado**, no lo que marca ahora el contador. Las facturas ilegibles no cuentan.
 - Los valores que faltan se muestran como «—».
 - El color de la diferencia sigue el estado: verde `ok`, ámbar `no_cuadra`, gris
   `estimada`, `sin_datos` y `gas`, rojo `no_leida`. Las facturas estimadas y las
@@ -155,10 +160,14 @@ La tarjeta y el panel comparten la misma tabla, con pestañas **Luz** y **Gas**:
 - **Fila desplegable** (pulsa una fila o el periodo, también con el teclado): conceptos de la
   factura e IVA y, solo en las de **luz**, kWh por periodo P1/P2/P3 (factura / Datadis),
   «Potencia + energía: factura X € / e-data Y €» con la diferencia en % y precio de la
-  energía. Si la factura se compara en grupo con otras (una real tras
+  energía. También las lecturas del contador de esa factura, si las trae. Si la factura se compara en grupo con otras (una real tras
   estimadas), el detalle separa **«Esta factura»** de **«Comparación del grupo»**.
 - Si hay dos contratos del mismo suministro, cada uno lleva su subtítulo con el
   nombre del contrato. Sin facturas se muestra «Todavía no hay facturas».
+
+Al actualizar a la versión 0.3.0, la integración vuelve a leer el buzón **una sola
+vez** (en solo lectura) para añadir las lecturas a las facturas ya guardadas, sin
+duplicarlas. Las facturas cuyo correo ya no esté en la carpeta se quedan sin lecturas.
 
 ### Tarjeta Lovelace
 

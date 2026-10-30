@@ -54,6 +54,15 @@ export interface Comparison {
   delta_pct: number | null;
 }
 
+/** Meter readings of an invoice: m³ for gas, one value per period for electricity. */
+export interface MeterReadings {
+  read_on: string;
+  estimated: boolean;
+  m3: number | null;
+  periods: PeriodValues | null;
+  previous: { read_on: string; estimated: boolean; m3: number | null } | null;
+}
+
 export interface InvoiceRow {
   number: string;
   supply: Supply;
@@ -69,6 +78,7 @@ export interface InvoiceRow {
   m3: number | null;
   energy_price_kwh: number | null;
   periods: PeriodValues | null;
+  meter: MeterReadings | null;
   concepts: Concept[];
   vat: Vat;
   in_group_of: string | null;

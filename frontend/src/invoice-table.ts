@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 import {
   deltaColorVar,
+  formatDate,
   formatDelta,
   formatEur,
   formatKwh,
@@ -18,6 +19,7 @@ import type {
   ContractInvoices,
   HomeAssistant,
   InvoiceRow,
+  MeterReadings,
   PeriodValues,
   Supply,
 } from "./types";
@@ -32,6 +34,17 @@ const PERIOD_KEYS: { key: keyof PeriodValues; name: string }[] = [
   { key: "p2", name: "P2" },
   { key: "p3", name: "P3" },
 ];
+
+const METER_PERIODS: { key: keyof PeriodValues; label: StringKey }[] = [
+  { key: "p1", label: "meter_p1" },
+  { key: "p2", label: "meter_p2" },
+  { key: "p3", label: "meter_p3" },
+];
+
+/** Reading of the newest invoice that has one; unreadable invoices are not trusted. */
+function latestMeter(newestRows: InvoiceRow[]): MeterReadings | null {
+  return newestRows.find((row) => row.meter && row.status !== "no_leida")?.meter ?? null;
+}
 
 /** Newest first: by period end, then issue date, then number. */
 function newestFirst(a: InvoiceRow, b: InvoiceRow): number {
@@ -189,6 +202,30 @@ export class CurenergiaInvoiceTable extends LitElement {
       padding: 16px 0;
       text-align: center;
     }
+    .meter {
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-card-border-radius, 12px);
+      margin-bottom: 8px;
+      padding: 10px 12px;
+    }
+    .meter-note {
+      color: var(--secondary-text-color);
+      font-size: 0.9em;
+    }
+    .meter-value {
+      font-size: 1.6em;
+      font-weight: 500;
+    }
+    .meter-periods {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      margin-top: 4px;
+    }
+    .meter-periods strong {
+      display: block;
+      font-weight: 500;
+    }
     @media (max-width: 450px) {
       th,
       td {
@@ -238,6 +275,7 @@ export class CurenergiaInvoiceTable extends LitElement {
         ];
     return html`
       ${withName ? html`<h3 class="contract-name">${contract.name}</h3>` : nothing}
+      ${this._renderMeter(latestMeter(rows))}
       <div class="scroll">
         <table>
           <thead>
@@ -251,6 +289,81 @@ export class CurenergiaInvoiceTable extends LitElement {
         </table>
       </div>
     `;
+  }
+
+  private _meterKind(estimated: boolean): string {
+    return t(this.hass, estimated ? "meter_estimated" : "meter_real");
+  }
+
+  private _renderMeter(meter: MeterReadings | null): TemplateResult | typeof nothing {
+    if (!meter) return nothing;
+    const lang = languageOf(this.hass);
+    const previous = meter.previous;
+    const pill = html`<span class="pill">${this._meterKind(meter.estimated)}</span>`;
+    return html`
+      <div class="meter">
+        <div class="meter-note">${t(this.hass, "meter_title")}</div>
+        ${meter.m3 !== null
+          ? html`<div class="meter-value">${formatM3(lang, meter.m3)} ${pill}</div>
+              <div class="meter-note">
+                ${formatDate(meter.read_on)}
+                ${previous && previous.m3 !== null
+                  ? html`·
+                    ${t(this.hass, "meter_since_previous", {
+                      diff: formatM3(lang, meter.m3 - previous.m3),
+                      value: formatM3(lang, previous.m3),
+                      kind: this._meterKind(previous.estimated),
+                      date: formatDate(previous.read_on),
+                    })}`
+                  : nothing}
+              </div>`
+          : html`<div class="meter-note">${formatDate(meter.read_on)} ${pill}</div>
+              <div class="meter-periods">
+                ${METER_PERIODS.map(
+                  ({ key, label }) =>
+                    html`<div>
+                      <span class="meter-note">${t(this.hass, label)}</span>
+                      <strong>${formatKwh(lang, meter.periods?.[key] ?? null)}</strong>
+                    </div>`,
+                )}
+              </div>`}
+      </div>
+    `;
+  }
+
+  private _renderMeterDetail(meter: MeterReadings): TemplateResult {
+    const lang = languageOf(this.hass);
+    const previous = meter.previous;
+    const current = t(this.hass, "detail_meter_current", {
+      kind: this._meterKind(meter.estimated),
+      date: formatDate(meter.read_on),
+    });
+    if (meter.m3 === null) {
+      return html`<div>${current}</div>
+        <ul>
+          ${METER_PERIODS.map(
+            ({ key, label }) =>
+              html`<li>
+                <span>${t(this.hass, label)}</span>
+                <span>${formatKwh(lang, meter.periods?.[key] ?? null)}</span>
+              </li>`,
+          )}
+        </ul>`;
+    }
+    return html`<ul>
+      <li><span>${current}</span><span>${formatM3(lang, meter.m3)}</span></li>
+      ${previous
+        ? html`<li>
+            <span>
+              ${t(this.hass, "detail_meter_previous", {
+                kind: this._meterKind(previous.estimated),
+                date: formatDate(previous.read_on),
+              })}
+            </span>
+            <span>${formatM3(lang, previous.m3)}</span>
+          </li>`
+        : nothing}
+    </ul>`;
   }
 
   private _renderRow(contract: ContractInvoices, invoice: InvoiceRow, columns: number) {
@@ -332,6 +445,7 @@ export class CurenergiaInvoiceTable extends LitElement {
           })}
         </div>
         ${electricity ? this._renderElectricityDetail(invoice, comparison) : nothing}
+        ${invoice.meter ? this._renderMeterDetail(invoice.meter) : nothing}
         ${invoice.in_group_of
           ? html`<div>
               ${t(this.hass, "detail_in_group_of", { number: invoice.in_group_of })}

@@ -258,6 +258,7 @@ describe("curenergia-invoices-card", () => {
               periods: null,
               comparison: null,
               in_group_of: null,
+              meter: null,
             }) as never,
         ),
       },
