@@ -9,9 +9,10 @@
 > Install it from HACS as a custom repository (the repository must be public),
 > set up a mailbox label, add the integration, and read the status table below.
 > The integration also serves its own Lovelace card (`custom:curenergia-invoices-card`,
-> with a visual editor: title, initial tab, maximum number of invoices, mail account)
-> and an optional admin-only sidebar panel "Facturas" (KPIs, kWh chart and the same
-> invoice table); no extra resources or HACS frontend installs are needed. Both follow
+> edited with Home Assistant's native visual editor: title, initial tab, maximum number
+> of invoices, mail account) and an optional admin-only sidebar panel "Facturas" (KPIs,
+> one kWh chart per electricity contract showing each invoice's own figures against
+> Datadis, and the same invoice table); no extra resources or HACS frontend installs are needed. Both follow
 > the Home Assistant theme and language (Spanish or English).
 > Everything is documented in Spanish; the status names (`ok`, `no_cuadra`,
 > `estimada`, `sin_datos`, `no_leida`, `gas`) are the same in every language.
@@ -37,7 +38,7 @@ No accede a la web ni a la API de CurEnergía.
 
 Estado actual (0.2.0): sensores de la última factura de cada contrato, botón para
 buscar facturas ahora, API websocket (`curenergia/invoices`, `curenergia/summary`),
-una **tarjeta Lovelace** con editor visual y un **panel lateral** «Facturas» (solo
+una **tarjeta Lovelace** con editor visual (el nativo de Home Assistant) y un **panel lateral** «Facturas» (solo
 administradores) que se puede activar o desactivar con la opción «Mostrar panel
 lateral». Ver [Tarjeta y panel](#tarjeta-y-panel).
 
@@ -150,9 +151,10 @@ La tarjeta y el panel comparten la misma tabla, con pestañas **Luz** y **Gas**:
 - El color de la diferencia sigue el estado: verde `ok`, ámbar `no_cuadra`, gris
   `estimada`, `sin_datos` y `gas`, rojo `no_leida`. Las facturas estimadas y las
   ilegibles llevan una pastilla «estimada» / «no se pudo leer».
-- **Fila desplegable** (pulsa una fila): conceptos de la factura e IVA, kWh por periodo
-  P1/P2/P3 (factura / Datadis), «Potencia + energía: factura X € / e-data Y €» con la
-  diferencia en %, y precio de la energía. Si la factura se compara en grupo con otras (una real tras
+- **Fila desplegable** (pulsa una fila o el periodo, también con el teclado): conceptos de la
+  factura e IVA y, solo en las de **luz**, kWh por periodo P1/P2/P3 (factura / Datadis),
+  «Potencia + energía: factura X € / e-data Y €» con la diferencia en % y precio de la
+  energía. Si la factura se compara en grupo con otras (una real tras
   estimadas), el detalle separa **«Esta factura»** de **«Comparación del grupo»**.
 - Si hay dos contratos del mismo suministro, cada uno lleva su subtítulo con el
   nombre del contrato. Sin facturas se muestra «Todavía no hay facturas».
@@ -168,7 +170,7 @@ supply: electricity
 max_invoices: 6
 ```
 
-El **editor visual** muestra los mismos campos:
+El **editor visual** es el formulario nativo de Home Assistant y muestra los mismos campos:
 
 | Opción (YAML) | Editor | Valor por defecto | Para qué sirve |
 |---|---|---|---|
@@ -186,10 +188,15 @@ los demás usuarios no lo ven. Muestra:
 
 - **Cabecera:** facturado en los últimos 12 meses, diferencia % de kWh entre factura
   y Datadis y número de lecturas estimadas.
-- **Gráfico de barras** de los **kWh** de cada factura **de luz** frente a los de Datadis.
+- Un **gráfico de barras** por cada contrato **de luz** (con su nombre si hay más de uno),
+  con sus 12 facturas más recientes: los **kWh** propios de cada factura frente a los de
+  Datadis en su propio periodo (en una factura comparada en grupo, el valor del grupo
+  menos el de las estimadas que regulariza). Las estimadas y las ilegibles se dibujan
+  más claras, con borde discontinuo.
 - La tabla de arriba, con las facturas de todas las entradas de la integración.
 - Avisos si hay correos con factura que no se pudieron leer, correos con facturas no
-  soportadas (rectificativas o abonos) o un error al leer el correo (en ese caso se siguen mostrando las facturas guardadas).
+  soportadas (rectificativas o abonos) o demasiado grandes (más de 15 MB) o un error al
+  leer el correo (en ese caso se siguen mostrando las facturas guardadas).
 
 Para quitarlo, desactiva la opción **Mostrar panel lateral** en las opciones de la
 integración (si hay varias entradas basta con que una lo tenga activado para que

@@ -190,17 +190,19 @@ describe("curenergia-panel", () => {
   it("shows mail error and unreadable warnings", async () => {
     const panel = await makePanel(api({ mail_error: true, unreadable_emails: 2 }));
     expect(text(panel)).toContain("No se pudo leer el correo; se muestran las facturas guardadas");
-    expect(text(panel)).toContain("2 correos con factura que no se pudo leer");
+    expect(text(panel)).toContain("Correos con factura que no se pudo leer: 2");
+    const en = await makePanel(api({ unreadable_emails: 1 }), "en");
+    expect(text(en)).toContain("E-mails with an invoice that could not be read: 1");
   });
 
-  it("warns about unsupported e-mails with their count", async () => {
+  it("warns about unsupported or oversized e-mails with their count", async () => {
     const es = await makePanel(api({ unsupported_emails: 3 }));
     expect(text(es)).toContain(
-      "Correos con factura no soportada (rectificativa o abono): 3",
+      "Correos con factura no soportada (rectificativa o abono) o demasiado grande (más de 15 MB): 3",
     );
     const en = await makePanel(api({ unsupported_emails: 1 }), "en");
     expect(text(en)).toContain(
-      "E-mails with an unsupported invoice (corrective or credit note): 1",
+      "E-mails with an invoice that is not supported (corrective or credit note) or too large (over 15 MB): 1",
     );
   });
 

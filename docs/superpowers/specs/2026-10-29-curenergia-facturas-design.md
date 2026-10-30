@@ -230,7 +230,7 @@ Un único componente de tabla compartido por la tarjeta y el panel **(mío)**:
 **Panel** en la barra lateral ("Facturas", `mdi:receipt-text`), registrado por la integración con `panel_custom`, activable en opciones y **solo para administradores** por defecto **(mío)**. Muestra:
 
 - cabecera con: total facturado en los últimos 12 meses, diferencia % de kWh entre factura y Datadis, número de lecturas estimadas;
-- gráfico de barras por factura (factura frente a Datadis) que representa los **kWh**;
+- un gráfico de barras por contrato **de luz** con los **kWh** de cada factura frente a Datadis, siempre los propios de esa factura y de su periodo: en una factura comparada en grupo, Datadis es el valor del grupo menos el de las estimadas que regulariza (sin barra de Datadis si a alguna le falta), y las estimadas e ilegibles se dibujan con un estilo más claro;
 - la tabla compartida.
 
 Tecnología del frontend **(mío)**: TypeScript + Lit, empaquetado con Rollup; el JS compilado se incluye en la release dentro de `custom_components/curenergia/frontend/`. El tipo de gráfico (SVG propio u otra librería) queda al builder.

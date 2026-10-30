@@ -46,8 +46,9 @@ const ES = {
   panel_billed_12m: "Facturado en 12 meses",
   panel_kwh_delta: "kWh factura vs Datadis",
   panel_estimated_count: "Lecturas estimadas",
-  panel_unreadable: "{n} correos con factura que no se pudo leer",
-  panel_unsupported: "Correos con factura no soportada (rectificativa o abono): {n}",
+  panel_unreadable: "Correos con factura que no se pudo leer: {n}",
+  panel_unsupported:
+    "Correos con factura no soportada (rectificativa o abono) o demasiado grande (más de 15 MB): {n}",
   panel_mail_error: "No se pudo leer el correo; se muestran las facturas guardadas",
   // Card editor
   editor_title: "Título",
@@ -96,8 +97,9 @@ const EN: Record<StringKey, string> = {
   panel_billed_12m: "Billed in 12 months",
   panel_kwh_delta: "Invoice kWh vs Datadis",
   panel_estimated_count: "Estimated readings",
-  panel_unreadable: "{n} e-mails with an invoice could not be read",
-  panel_unsupported: "E-mails with an unsupported invoice (corrective or credit note): {n}",
+  panel_unreadable: "E-mails with an invoice that could not be read: {n}",
+  panel_unsupported:
+    "E-mails with an invoice that is not supported (corrective or credit note) or too large (over 15 MB): {n}",
   panel_mail_error: "Could not read the mailbox; showing the saved invoices",
   editor_title: "Title",
   editor_supply: "Initial tab",
