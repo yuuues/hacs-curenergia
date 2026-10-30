@@ -45,7 +45,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      # brands: the local brand/ folder arrives in plan 3.
+      # brands stays ignored: the local brand/ folder exists since 0.2.0, but HACS acceptance
+      # of it cannot be verified locally; remove this once the action passes without it.
       - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration

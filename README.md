@@ -8,6 +8,11 @@
 > It is **not** an official CurEnergía, Iberdrola or Home Assistant project.
 > Install it from HACS as a custom repository (the repository must be public),
 > set up a mailbox label, add the integration, and read the status table below.
+> The integration also serves its own Lovelace card (`custom:curenergia-invoices-card`,
+> with a visual editor: title, initial tab, maximum number of invoices, mail account)
+> and an optional admin-only sidebar panel "Facturas" (KPIs, kWh chart and the same
+> invoice table); no extra resources or HACS frontend installs are needed. Both follow
+> the Home Assistant theme and language (Spanish or English).
 > Everything is documented in Spanish; the status names (`ok`, `no_cuadra`,
 > `estimada`, `sin_datos`, `no_leida`, `gas`) are the same in every language.
 
@@ -30,10 +35,11 @@ Si eres cliente de CurEnergía y tienes en Home Assistant la integración
 **No es un proyecto oficial.** No está relacionado con CurEnergía, Iberdrola, Datadis ni Home Assistant.
 No accede a la web ni a la API de CurEnergía.
 
-Estado actual: sensores de la última factura de cada contrato, botón para buscar
-facturas ahora y API websocket (`curenergia/invoices`, `curenergia/summary`).
-La tarjeta Lovelace y el panel lateral llegarán en una versión posterior; la
-opción «Mostrar panel lateral» ya existe, pero todavía no hace nada.
+Estado actual (0.2.0): sensores de la última factura de cada contrato, botón para
+buscar facturas ahora, API websocket (`curenergia/invoices`, `curenergia/summary`),
+una **tarjeta Lovelace** con editor visual y un **panel lateral** «Facturas» (solo
+administradores) que se puede activar o desactivar con la opción «Mostrar panel
+lateral». Ver [Tarjeta y panel](#tarjeta-y-panel).
 
 ## Instalación (HACS)
 
@@ -101,7 +107,7 @@ valer, Home Assistant te pide reautenticarte.
 | Intervalo de revisión (horas) | 6 | Cada cuánto se mira el buzón (1–24). |
 | Umbral de kWh | 1 | Se marca si la diferencia es **mayor** que este valor. |
 | Umbral de importe (%) | 2 | Se marca si la diferencia en € es **mayor** que este porcentaje. |
-| Mostrar panel lateral | sí | Reservada para el panel de una versión posterior. |
+| Mostrar panel lateral | sí | Muestra el panel «Facturas» en la barra lateral (solo administradores). Ver [Tarjeta y panel](#tarjeta-y-panel). |
 | Guardar los PDF de las facturas | no | Guarda una copia (ver abajo). |
 | Entrada de e-data | automático | Con qué entrada de e-data comparar. |
 
@@ -120,6 +126,76 @@ mano, solo se aplica cuando hay **un único CUPS de luz sin pareja automática**
 esa entrada no está ya vinculada automáticamente a otro CUPS de luz; si hay dos o
 más sin pareja, ninguno se vincula (para no comparar dos contadores con el mismo
 e-data).
+
+## Tarjeta y panel
+
+La propia integración sirve el JavaScript de la tarjeta y del panel (ruta
+`/curenergia_static/curenergia.js`) y lo carga en todas las vistas de Home Assistant:
+**no hay que añadir recursos de Lovelace ni instalar nada más en HACS**. Tras
+actualizar a esta versión reinicia Home Assistant y recarga el navegador (Ctrl+F5)
+para que se cargue el módulo nuevo. Ambos usan solo las variables del tema de Home
+Assistant y el idioma de tu perfil (español si empieza por `es`; si no, inglés).
+
+### Tabla de facturas
+
+La tarjeta y el panel comparten la misma tabla, con pestañas **Luz** y **Gas**:
+
+- **Luz:** Periodo · kWh factura · kWh Datadis · Δ kWh · Importe · Δ €.
+  *Importe* es el total de la factura (con impuestos, bono social, alquiler, etc.).
+  *Δ €* es la diferencia de la parte comparable, **potencia + energía**, entre la
+  factura y e-data (ver [Cómo se comparan los €](#cómo-se-comparan-los-)); por eso no
+  hay una columna «€ e-data»: no se puede restar del total.
+- **Gas:** Periodo · kWh · m³ · Importe · €/kWh. No se casa con Datadis.
+- Los valores que faltan se muestran como «—».
+- El color de la diferencia sigue el estado: verde `ok`, ámbar `no_cuadra`, gris
+  `estimada`, `sin_datos` y `gas`, rojo `no_leida`. Las facturas estimadas y las
+  ilegibles llevan una pastilla «estimada» / «no se pudo leer».
+- **Fila desplegable** (pulsa una fila): número y fecha de emisión, «Potencia +
+  energía: factura X € / e-data Y €» con la diferencia en %, kWh por periodo
+  P1/P2/P3 (factura / Datadis), conceptos de la factura, precio de la energía y
+  avisos de lectura. Si la factura se compara en grupo con otras (una real tras
+  estimadas), el detalle separa **«Esta factura»** de **«Comparación del grupo»**.
+- Si hay dos contratos del mismo suministro, cada uno lleva su subtítulo con el
+  nombre del contrato. Sin facturas se muestra «Todavía no hay facturas».
+
+### Tarjeta Lovelace
+
+Añádela desde el selector de tarjetas («CurEnergía») o en YAML:
+
+```yaml
+type: custom:curenergia-invoices-card
+title: Facturas de la luz
+supply: electricity
+max_invoices: 6
+```
+
+El **editor visual** muestra los mismos campos:
+
+| Opción (YAML) | Editor | Valor por defecto | Para qué sirve |
+|---|---|---|---|
+| `title` | Título | «Facturas» | Título de la tarjeta. |
+| `supply` | Pestaña inicial | `electricity` | Pestaña que se abre primero: `electricity` (luz) o `gas`. |
+| `max_invoices` | Número máximo de facturas | 6 | Cuántas facturas se listan (de 1 a 60). |
+| `entry_id` | Cuenta de correo (opcional) | todas | Limita la tarjeta a una entrada de la integración (solo útil con varias cuentas de correo). |
+
+La tarjeta recarga los datos al mostrarse y después cada 15 minutos.
+
+### Panel lateral «Facturas»
+
+Aparece en la barra lateral (icono `mdi:receipt-text`) para los **administradores**;
+los demás usuarios no lo ven. Muestra:
+
+- **Cabecera:** facturado en los últimos 12 meses, diferencia % de kWh entre factura
+  y Datadis y número de lecturas estimadas.
+- **Gráfico de barras** de los **kWh** de cada factura frente a los de Datadis.
+- La tabla de arriba, con un selector de cuenta si tienes varias entradas.
+- Avisos si hay correos con factura que no se pudieron leer, correos no soportados o
+  un error al leer el correo (en ese caso se siguen mostrando las facturas guardadas).
+
+Para quitarlo, desactiva la opción **Mostrar panel lateral** en las opciones de la
+integración (si hay varias entradas basta con que una lo tenga activado para que
+aparezca). El título del panel en la barra lateral es «Facturas» en todos los
+idiomas, porque Home Assistant no traduce el título de los paneles personalizados.
 
 ## Entidades
 
