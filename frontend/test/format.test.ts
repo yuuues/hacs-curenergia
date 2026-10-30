@@ -5,9 +5,11 @@ import {
   formatDelta,
   formatEur,
   formatKwh,
+  formatM3,
   formatPct,
   formatPeriod,
   formatPricePerKwh,
+  formatRate,
 } from "../src/format";
 
 // Intl inserts no-break spaces; the implementation normalises them to plain ones.
@@ -48,6 +50,15 @@ describe("numbers", () => {
     expect(plain(formatKwh("es", 380.1))).toBe("380,1 kWh");
     expect(plain(formatEur("en", 5))).toBe("5.00 €");
     expect(plain(formatPct("es", 3.456))).toBe("3,5 %");
+  });
+
+  it("formats cubic metres (0-2 decimals) and VAT rates", () => {
+    expect(plain(formatM3("es", 34.5))).toBe("34,5 m³");
+    expect(plain(formatM3("en", 34))).toBe("34 m³");
+    expect(formatM3("es", null)).toBe("—");
+    expect(plain(formatRate("es", 21))).toBe("21 %");
+    expect(plain(formatRate("es", 10.5))).toBe("10,5 %");
+    expect(formatRate("es", null)).toBe("—");
   });
 
   it("falls back to English for an invalid language tag", () => {

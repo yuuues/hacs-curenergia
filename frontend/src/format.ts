@@ -77,3 +77,13 @@ export function deltaColorVar(status: Status): string {
       return "--secondary-text-color";
   }
 }
+
+/** Gas volume: up to 2 decimals. */
+export function formatM3(lang: string, value: number | null): string {
+  return value === null ? DASH : `${number(lang, value, 0, 2)} m³`;
+}
+
+/** VAT rate (already in percent): `21 %`, `10,5 %`. */
+export function formatRate(lang: string, value: number | null): string {
+  return value === null ? DASH : `${number(lang, value, 0, 2)} %`;
+}
