@@ -4,6 +4,7 @@ import json
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from homeassistant.components.diagnostics import REDACTED
@@ -14,6 +15,7 @@ from pytest_homeassistant_custom_component.components.diagnostics import (
     get_diagnostics_for_config_entry,
 )
 
+from custom_components.curenergia.mail import MailConnectionError
 from custom_components.curenergia.matching import Totals
 
 from .helpers import ENTRY_DATA, FakeMailbox, fake_totals, make_entry, setup_entry
@@ -107,6 +109,9 @@ async def test_diagnostics_redacted(
         "seen": 3,
         "failed": 1,
         "unsupported": 1,
+        "folder_messages": 5,
+        "last_read_complete": True,
+        "last_error": None,
     }
 
     assert len(result["invoices"]) == 3
@@ -217,4 +222,65 @@ async def test_diagnostics_empty(hass: HomeAssistant, hass_client, mailbox):
         "seen": 0,
         "failed": 0,
         "unsupported": 0,
+        "folder_messages": 0,
+        "last_read_complete": True,
+        "last_error": None,
     }
+
+
+async def test_diagnostics_mail_failure(
+    hass: HomeAssistant, hass_client, mailbox: FakeMailbox, make_invoice
+):
+    mailbox.add(1, (b"real", make_invoice()))
+    mailbox.add(2)
+    entry = make_entry()
+    await setup_entry(hass, entry)
+
+    mailbox.error = MailConnectionError("Cannot connect to the IMAP server (OSError)")
+    await entry.runtime_data.async_refresh()
+    result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+
+    # Se conserva lo que devolvió el último SEARCH; la lectura no acabó.
+    assert result["mail"]["folder_messages"] == 2
+    assert result["mail"]["last_read_complete"] is False
+    assert result["mail"]["last_error"] == "MailConnectionError"
+
+    # Un refresco correcto completa la lectura; el último fallo se conserva.
+    mailbox.error = None
+    mailbox.add(3)
+    await entry.runtime_data.async_refresh()
+    result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+    assert result["mail"]["folder_messages"] == 3
+    assert result["mail"]["last_read_complete"] is True
+    assert result["mail"]["last_error"] == "MailConnectionError"
+
+
+async def test_diagnostics_mail_unexpected_error_is_class_name_only(
+    hass: HomeAssistant, hass_client, mailbox: FakeMailbox, make_invoice
+):
+    mailbox.add(1, (b"real", make_invoice()))
+    entry = make_entry()
+    await setup_entry(hass, entry)
+
+    mailbox.error = ValueError("user@example.es secret")
+    await entry.runtime_data.async_refresh()
+    result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+
+    assert result["mail"]["last_error"] == "ValueError"
+    assert "secret" not in json.dumps(result)
+
+
+async def test_diagnostics_mail_partial_read(
+    hass: HomeAssistant, hass_client, mailbox: FakeMailbox
+):
+    for uid in range(1, 26):
+        mailbox.add(uid)
+    entry = make_entry()
+
+    with patch("custom_components.curenergia.coordinator.MAX_BATCHES_PER_REFRESH", 1):
+        await setup_entry(hass, entry)
+        result = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+
+    assert result["mail"]["folder_messages"] == 25
+    assert result["mail"]["last_read_complete"] is False
+    assert result["mail"]["last_error"] is None

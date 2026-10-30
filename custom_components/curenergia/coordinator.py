@@ -143,6 +143,13 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
             update_interval=timedelta(hours=entry.options[CONF_SCAN_HOURS]),
         )
         self.store = InvoiceStore(hass, entry.entry_id)
+        # Diagnósticos del buzón, solo en memoria (no van al Store).
+        # UID del remitente que devolvió el último SEARCH.
+        self.mail_folder_messages: int | None = None
+        # El último refresco leyó la carpeta hasta el final.
+        self.mail_last_read_complete = False
+        # Clase de la excepción del último fallo del correo (sin su mensaje).
+        self.mail_last_error: str | None = None
 
     async def async_totals_provider(self, cups: str) -> TotalsProvider | None:
         """Proveedor de sumas de e-data para ``cups``; ``None`` si no hay e-data."""
@@ -213,12 +220,15 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                     client.fetch, folder, frozenset(skip), mail.uidvalidity
                 )
             except MailAuthError as err:
+                self._record_mail_failure(err)
                 raise ConfigEntryAuthFailed(
                     "The IMAP server rejected the login"
                 ) from err
             except Exception as err:  # noqa: BLE001
+                self._record_mail_failure(err)
                 return await self._async_mail_failed(err)
 
+            self.mail_folder_messages = len(result.all_uids)
             await self._async_ingest_batch(result, folder, save_pdfs)
             if not result.remaining:
                 complete = True
@@ -227,6 +237,7 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 break
             await self.store.async_save()
 
+        self.mail_last_read_complete = complete
         if complete:
             self._forget_and_mark_seen(result.all_uids)
         else:
@@ -240,6 +251,11 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         return await self._async_build_data(
             mail_error=False, last_mail_check=dt_util.utcnow()
         )
+
+    def _record_mail_failure(self, err: Exception) -> None:
+        """Anota el fallo para los diagnósticos: solo la clase (R22)."""
+        self.mail_last_error = type(err).__name__
+        self.mail_last_read_complete = False
 
     def _forget_and_mark_seen(self, all_uids: frozenset[int]) -> None:
         """Tras leer todo el buzón: olvida los UID que ya no están en la

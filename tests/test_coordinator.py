@@ -230,6 +230,8 @@ async def test_batch_cap_stops_and_resumes_on_next_refresh(
         assert coordinator.store.mail.seen == set(range(1, 41))
         assert hass_storage[key]["data"]["mail"]["seen"] == list(range(1, 41))
         assert coordinator.data.mail_error is False
+        assert coordinator.mail_folder_messages == 45
+        assert coordinator.mail_last_read_complete is False
         records = [r for r in caplog.records if PARTIAL_READ in r.getMessage()]
         assert len(records) == 1
         assert records[0].levelno == logging.WARNING
@@ -239,6 +241,8 @@ async def test_batch_cap_stops_and_resumes_on_next_refresh(
 
     assert mailbox.calls[-1] == ("INBOX", frozenset(range(1, 41)), 1)
     assert coordinator.store.mail.seen == set(range(1, 46))
+    assert coordinator.mail_last_read_complete is True
+    assert coordinator.mail_last_error is None
 
 
 async def test_batch_without_progress_stops_the_loop(
@@ -260,6 +264,8 @@ async def test_batch_without_progress_stops_the_loop(
     assert len(mailbox.calls) == 1
     # Sin R16: los UID no descargados no se marcan como vistos.
     assert coordinator.store.mail.seen == set()
+    assert coordinator.mail_folder_messages == 3
+    assert coordinator.mail_last_read_complete is False
     records = [r for r in caplog.records if PARTIAL_READ in r.getMessage()]
     assert len(records) == 1
 

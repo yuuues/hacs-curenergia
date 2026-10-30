@@ -63,6 +63,10 @@ async def async_get_config_entry_diagnostics(
                 "seen": len(mail.seen),
                 "failed": len(mail.failed),
                 "unsupported": len(mail.unsupported),
+                # En memoria (no en el Store): desde que arrancó HA.
+                "folder_messages": coordinator.mail_folder_messages,
+                "last_read_complete": coordinator.mail_last_read_complete,
+                "last_error": coordinator.mail_last_error,
             },
             "invoices": invoices,
         },

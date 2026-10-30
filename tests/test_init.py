@@ -55,6 +55,9 @@ async def test_auth_error_after_setup_starts_reauth(
     await hass.async_block_till_done()
 
     assert entry.runtime_data.last_update_success is False
+    # Diagnósticos (en memoria): solo la clase del error.
+    assert entry.runtime_data.mail_last_error == "MailAuthError"
+    assert entry.runtime_data.mail_last_read_complete is False
     flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
     assert [flow["context"]["source"] for flow in flows] == [SOURCE_REAUTH]
 
