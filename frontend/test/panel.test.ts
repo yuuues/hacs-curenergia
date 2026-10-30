@@ -121,6 +121,53 @@ describe("curenergia-panel", () => {
     expect(panel.shadowRoot!.querySelector(".toolbar")!.textContent).toContain("Facturas");
   });
 
+  it("falls back to a plain menu button when ha-menu-button is not defined", async () => {
+    const get = customElements.get.bind(customElements);
+    const spy = vi
+      .spyOn(customElements, "get")
+      .mockImplementation((name: string) => (name === "ha-menu-button" ? undefined : get(name)));
+    try {
+      const panel = await makePanel(api(), "es", true);
+      const root = panel.shadowRoot!;
+      expect(root.querySelector("ha-menu-button")).toBeNull();
+      const button = root.querySelector("button.menu") as HTMLButtonElement;
+      expect(button).not.toBeNull();
+      expect(button.getAttribute("aria-label")).toBe("Menú");
+      const events: Event[] = [];
+      document.addEventListener("hass-toggle-menu", (e) => events.push(e), { once: true });
+      button.click();
+      expect(events).toHaveLength(1);
+      expect(events[0].bubbles).toBe(true);
+      expect(events[0].composed).toBe(true);
+
+      // Not narrow: HA shows the sidebar itself, no button.
+      document.body.innerHTML = "";
+      const wide = await makePanel(api(), "en", false);
+      expect(wide.shadowRoot!.querySelector("button.menu")).toBeNull();
+      expect(wide.shadowRoot!.querySelector("ha-menu-button")).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("keeps ha-menu-button when it is defined, without the fallback", async () => {
+    const panel = await makePanel(api(), "en", true);
+    expect(panel.shadowRoot!.querySelector("ha-menu-button")).not.toBeNull();
+    expect(panel.shadowRoot!.querySelector("button.menu")).toBeNull();
+  });
+
+  it("leaves room for the top safe area in the toolbar", () => {
+    const ctor = customElements.get("curenergia-panel") as unknown as {
+      styles: { cssText: string };
+    };
+    expect(ctor.styles.cssText).toMatch(/padding-top:\s*env\(safe-area-inset-top/);
+  });
+
+  it("does not fail with a language tag Intl rejects", async () => {
+    const panel = await makePanel(api(), "en_US");
+    expect(kpis(panel)[2]).toEqual({ label: "Estimated readings", value: "3" });
+  });
+
   it("renders KPIs from the summary", async () => {
     const panel = await makePanel(api());
     expect(kpis(panel)).toEqual([

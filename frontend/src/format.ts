@@ -87,6 +87,11 @@ export function deltaColorVar(status: Status): string {
   }
 }
 
+/** Whole count: `3`, `1.234`. */
+export function formatCount(lang: string, value: number): string {
+  return number(lang, value, 0, 0);
+}
+
 /** Gas volume: up to 2 decimals. */
 export function formatM3(lang: string, value: number | null): string {
   return value === null ? DASH : `${number(lang, value, 0, 2)} m³`;

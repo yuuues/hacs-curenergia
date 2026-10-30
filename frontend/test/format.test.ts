@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deltaColorVar,
+  formatCount,
   formatDate,
   formatDelta,
   formatEur,
@@ -64,6 +65,12 @@ describe("numbers", () => {
 
   it("falls back to English for an invalid language tag", () => {
     expect(plain(formatEur("not a tag", 1.5))).toBe("1.50 €");
+    expect(plain(formatCount("not a tag", 1234))).toBe("1,234");
+  });
+
+  it("formats counts as integers per locale", () => {
+    expect(plain(formatCount("en", 3))).toBe("3");
+    expect(plain(formatCount("en", 1234))).toBe("1,234");
   });
 });
 

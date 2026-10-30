@@ -42,6 +42,7 @@ const ES = {
   chart_datadis: "Datadis",
   // Panel
   panel_title: "Facturas",
+  panel_menu: "Menú",
   panel_billed_12m: "Facturado en 12 meses",
   panel_kwh_delta: "kWh factura vs Datadis",
   panel_estimated_count: "Lecturas estimadas",
@@ -91,6 +92,7 @@ const EN: Record<StringKey, string> = {
   chart_invoice: "Invoice",
   chart_datadis: "Datadis",
   panel_title: "Invoices",
+  panel_menu: "Menu",
   panel_billed_12m: "Billed in 12 months",
   panel_kwh_delta: "Invoice kWh vs Datadis",
   panel_estimated_count: "Estimated readings",

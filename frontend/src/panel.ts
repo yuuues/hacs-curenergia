@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 import { fetchInvoices, fetchSummary } from "./api";
-import { formatEur, formatSignedPct } from "./format";
+import { formatCount, formatEur, formatSignedPct } from "./format";
 import { languageOf, t } from "./i18n";
 import type { ContractInvoices, HomeAssistant, Summary, Supply } from "./types";
 import "./invoice-table";
@@ -50,11 +50,35 @@ export class CurenergiaPanel extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      height: 56px;
+      height: calc(56px + env(safe-area-inset-top, 0px));
       padding: 0 12px;
+      padding-top: env(safe-area-inset-top, 0px);
       box-sizing: border-box;
       background: var(--app-header-background-color);
       color: var(--app-header-text-color, var(--primary-text-color));
+    }
+    .menu {
+      appearance: none;
+      background: none;
+      border: none;
+      border-radius: 50%;
+      color: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+    .menu:focus-visible {
+      outline: 2px solid var(--primary-color);
+    }
+    .menu svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
     }
     .toolbar .title {
       font-size: 20px;
@@ -172,6 +196,31 @@ export class CurenergiaPanel extends LitElement {
     if (supply === "electricity" || supply === "gas") this._supply = supply;
   };
 
+  /**
+   * HA's own menu button; if it is not loaded yet (it is lazy-loaded by HA),
+   * a plain button that asks HA to toggle the sidebar, only in narrow layout.
+   */
+  private _renderMenuButton(hass: HomeAssistant): TemplateResult | typeof nothing {
+    if (customElements.get("ha-menu-button")) {
+      return html`<ha-menu-button .hass=${hass} .narrow=${this.narrow}></ha-menu-button>`;
+    }
+    if (!this.narrow) return nothing;
+    return html`<button
+      class="menu"
+      type="button"
+      aria-label=${t(hass, "panel_menu")}
+      @click=${this._toggleMenu}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+      </svg>
+    </button>`;
+  }
+
+  private _toggleMenu = (): void => {
+    this.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
+  };
+
   private _renderKpis(hass: HomeAssistant): TemplateResult {
     const lang = languageOf(hass);
     const summary = this._summary;
@@ -185,7 +234,7 @@ export class CurenergiaPanel extends LitElement {
       ${kpi(t(hass, "panel_kwh_delta"), formatSignedPct(lang, summary?.kwh_delta_pct ?? null))}
       ${kpi(
         t(hass, "panel_estimated_count"),
-        summary ? new Intl.NumberFormat(lang).format(summary.estimated_count) : "—",
+        summary ? formatCount(lang, summary.estimated_count) : "—",
       )}
     </div>`;
   }
@@ -231,7 +280,7 @@ export class CurenergiaPanel extends LitElement {
     const summary = this._summary;
     return html`
       <div class="toolbar">
-        <ha-menu-button .hass=${hass} .narrow=${this.narrow}></ha-menu-button>
+        ${this._renderMenuButton(hass)}
         <div class="title">${t(hass, "panel_title")}</div>
       </div>
       <div class="content">
