@@ -1,10 +1,10 @@
 import { LitElement, css, html, nothing } from "lit";
 import type { TemplateResult } from "lit";
 import { fetchInvoices } from "./api";
-import { STRINGS, t } from "./i18n";
+import { STRINGS, t, translate } from "./i18n";
+import type { StringKey } from "./i18n";
 import type { ContractInvoices, HomeAssistant, Supply } from "./types";
 import "./invoice-table";
-import "./card-editor";
 
 export interface CardConfig {
   type?: string;
@@ -14,6 +14,19 @@ export interface CardConfig {
   entry_id?: string;
 }
 
+/** What HA's native card editor expects from `getConfigForm()`. */
+export interface ConfigForm {
+  schema: { name: string; selector: Record<string, unknown> }[];
+  computeLabel: (item: { name: string }) => string | undefined;
+}
+
+const EDITOR_LABELS: Record<string, StringKey> = {
+  title: "editor_title",
+  supply: "editor_supply",
+  max_invoices: "editor_max_invoices",
+  entry_id: "editor_entry_id",
+};
+
 const DEFAULT_MAX_INVOICES = 6;
 const REFRESH_MS = 15 * 60 * 1000;
 
@@ -21,7 +34,11 @@ function validate(config: unknown): CardConfig {
   if (config === null || typeof config !== "object" || Array.isArray(config)) {
     throw new Error("Invalid configuration");
   }
-  const { max_invoices, supply, title, entry_id } = config as Record<string, unknown>;
+  // The native editor can leave an emptied text or select as "": treated as unset.
+  const cleaned = Object.fromEntries(
+    Object.entries(config as Record<string, unknown>).filter(([, value]) => value !== ""),
+  );
+  const { max_invoices, supply, title, entry_id } = cleaned;
   if (max_invoices !== undefined) {
     if (
       typeof max_invoices !== "number" ||
@@ -41,7 +58,7 @@ function validate(config: unknown): CardConfig {
   if (entry_id !== undefined && typeof entry_id !== "string") {
     throw new Error("entry_id must be a string");
   }
-  return config as CardConfig;
+  return cleaned as CardConfig;
 }
 
 export class CurenergiaInvoicesCard extends LitElement {
@@ -90,8 +107,36 @@ export class CurenergiaInvoicesCard extends LitElement {
     return { max_invoices: DEFAULT_MAX_INVOICES };
   }
 
-  static getConfigElement(): HTMLElement {
-    return document.createElement("curenergia-invoices-card-editor");
+  /**
+   * Native HA card editor (ha-form). It has no `hass`, so the language is the
+   * one HA sets on the page (`<html lang>`).
+   */
+  static getConfigForm(): ConfigForm {
+    const language = document.documentElement.lang || navigator.language || "en";
+    return {
+      schema: [
+        { name: "title", selector: { text: {} } },
+        {
+          name: "supply",
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "electricity", label: translate(language, "tab_electricity") },
+                { value: "gas", label: translate(language, "tab_gas") },
+              ],
+            },
+          },
+        },
+        { name: "max_invoices", selector: { number: { min: 1, max: 60, mode: "box" } } },
+        { name: "entry_id", selector: { config_entry: { integration: "curenergia" } } },
+      ],
+      // Unknown names: `undefined`, so HA uses its own label.
+      computeLabel: (item) => {
+        const key = EDITOR_LABELS[item.name];
+        return key ? translate(language, key) : undefined;
+      },
+    };
   }
 
   get hass(): HomeAssistant | undefined {

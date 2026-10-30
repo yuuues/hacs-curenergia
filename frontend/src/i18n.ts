@@ -121,7 +121,16 @@ export function t(
   key: StringKey,
   vars?: Record<string, string | number>,
 ): string {
-  const table = languageOf(hass).toLowerCase().startsWith("es") ? STRINGS.es : STRINGS.en;
+  return translate(languageOf(hass), key, vars);
+}
+
+/** Same as `t`, from a language tag (for code that has no `hass`). */
+export function translate(
+  language: string,
+  key: StringKey,
+  vars?: Record<string, string | number>,
+): string {
+  const table = language.toLowerCase().startsWith("es") ? STRINGS.es : STRINGS.en;
   const text = table[key];
   if (!vars) return text;
   return text.replace(/\{(\w+)\}/g, (placeholder, name: string) =>

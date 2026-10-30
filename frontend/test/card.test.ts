@@ -51,11 +51,77 @@ describe("curenergia-invoices-card", () => {
     expect(ctor.getStubConfig()).toEqual({ max_invoices: 6 });
   });
 
-  it("creates the editor element", () => {
-    const ctor = customElements.get("curenergia-invoices-card") as unknown as {
-      getConfigElement(): HTMLElement;
+  describe("native config form", () => {
+    type Form = {
+      schema: { name: string; selector: Record<string, unknown> }[];
+      computeLabel: (item: { name: string }) => string | undefined;
     };
-    expect(ctor.getConfigElement().localName).toBe("curenergia-invoices-card-editor");
+    const ctor = () =>
+      customElements.get("curenergia-invoices-card") as unknown as {
+        getConfigForm(): Form;
+        getConfigElement?: unknown;
+      };
+    const previousLang = document.documentElement.lang;
+
+    afterEach(() => {
+      document.documentElement.lang = previousLang;
+    });
+
+    it("has no custom editor element", () => {
+      expect(ctor().getConfigElement).toBeUndefined();
+      expect(customElements.get("curenergia-invoices-card-editor")).toBeUndefined();
+    });
+
+    it("describes the four fields with HA selectors", () => {
+      document.documentElement.lang = "en";
+      const { schema } = ctor().getConfigForm();
+      expect(schema.map((s) => s.name)).toEqual(["title", "supply", "max_invoices", "entry_id"]);
+      const byName = Object.fromEntries(schema.map((s) => [s.name, s.selector]));
+      expect(byName.title).toEqual({ text: {} });
+      expect(byName.supply).toEqual({
+        select: {
+          mode: "dropdown",
+          options: [
+            { value: "electricity", label: "Electricity" },
+            { value: "gas", label: "Gas" },
+          ],
+        },
+      });
+      expect(byName.max_invoices).toEqual({ number: { min: 1, max: 60, mode: "box" } });
+      expect(byName.entry_id).toEqual({ config_entry: { integration: "curenergia" } });
+    });
+
+    it("labels the fields in Spanish or English", () => {
+      document.documentElement.lang = "es-ES";
+      const es = ctor().getConfigForm();
+      expect(es.computeLabel({ name: "title" })).toBe("Título");
+      expect(es.computeLabel({ name: "supply" })).toBe("Pestaña inicial");
+      expect(es.computeLabel({ name: "max_invoices" })).toBe("Número máximo de facturas");
+      expect(es.computeLabel({ name: "entry_id" })).toBe("Cuenta de correo (opcional)");
+      expect(es.computeLabel({ name: "other" })).toBeUndefined();
+      const supply = es.schema.find((s) => s.name === "supply")!.selector as {
+        select: { options: { label: string }[] };
+      };
+      expect(supply.select.options.map((o) => o.label)).toEqual(["Luz", "Gas"]);
+
+      document.documentElement.lang = "en";
+      const en = ctor().getConfigForm();
+      expect(en.computeLabel({ name: "title" })).toBe("Title");
+      expect(en.computeLabel({ name: "supply" })).toBe("Initial tab");
+      expect(en.computeLabel({ name: "max_invoices" })).toBe("Maximum number of invoices");
+      expect(en.computeLabel({ name: "entry_id" })).toBe("Mail account (optional)");
+    });
+  });
+
+  it("treats empty strings from the form as unset", async () => {
+    const send = vi.fn().mockResolvedValue({ contracts: [] });
+    const card = makeCard({ title: "", supply: "", entry_id: "" });
+    document.body.appendChild(card);
+    card.hass = fakeHass("es", send);
+    await flush();
+    await card.updateComplete;
+    expect(headerOf(card)).toBe("Facturas");
+    expect(send).toHaveBeenCalledWith({ type: "curenergia/invoices" });
   });
 
   it("fetches once on first hass and every 15 minutes", async () => {
