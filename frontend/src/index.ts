@@ -1,3 +1,5 @@
-// Entry point of the bundle. Tasks 3-4 import the remaining custom elements here
-// (card, editor, bar chart and panel).
+// Entry point of the bundle. Task 4 imports the remaining custom elements here
+// (bar chart and panel).
 import "./invoice-table";
+import "./card-editor";
+import "./card";

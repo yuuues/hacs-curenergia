@@ -48,6 +48,7 @@ const ES = {
   empty: "Todavía no hay facturas",
   error: "No se pudieron cargar las facturas",
   retry: "Reintentar",
+  card_description: "Facturas de CurEnergía comparadas con los datos de Datadis",
   // Chart
   chart_title: "Importe por factura",
   chart_empty: "Sin datos para el gráfico",
@@ -114,6 +115,7 @@ const EN: Record<StringKey, string> = {
   empty: "No invoices yet",
   error: "Could not load the invoices",
   retry: "Retry",
+  card_description: "CurEnergía invoices compared with Datadis data",
   chart_title: "Amount per invoice",
   chart_empty: "No data for the chart",
   panel_title: "Invoices",
