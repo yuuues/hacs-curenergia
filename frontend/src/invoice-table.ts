@@ -124,7 +124,10 @@ export class CurenergiaInvoiceTable extends LitElement {
     tr.row:hover,
     tr.row:focus-visible {
       background: var(--secondary-background-color, transparent);
-      outline: none;
+    }
+    tr.row:focus-visible {
+      outline: 2px solid var(--primary-color);
+      outline-offset: -2px;
     }
     tr.row td {
       border-bottom: 1px solid var(--divider-color);
@@ -339,7 +342,14 @@ export class CurenergiaInvoiceTable extends LitElement {
     const invoicePeriods = comparison?.invoice_periods ?? invoice.periods;
     const edataPeriods = comparison?.edata_periods ?? null;
     const showPeriods = invoicePeriods !== null || edataPeriods !== null;
+    const grouped = (comparison?.group.length ?? 0) > 1;
     return html`
+      ${grouped
+        ? html`<div>${t(this.hass, "detail_own_kwh", { kwh: formatKwh(lang, invoice.kwh) })}</div>
+            <strong>
+              ${t(this.hass, "detail_group_heading", { n: comparison?.group.length ?? 0 })}
+            </strong>`
+        : nothing}
       ${showPeriods
         ? html`<ul>
             ${PERIOD_KEYS.map(
@@ -360,7 +370,7 @@ export class CurenergiaInvoiceTable extends LitElement {
               invoice: formatEur(lang, comparison.invoice_eur),
               edata: formatEur(lang, comparison.edata_eur),
             })}
-            (Δ ${formatPct(lang, comparison.delta_pct)})
+            (${t(this.hass, "detail_delta_pct", { pct: formatPct(lang, comparison.delta_pct) })})
           </div>`
         : nothing}
       <div>

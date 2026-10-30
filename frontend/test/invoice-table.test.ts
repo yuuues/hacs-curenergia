@@ -248,6 +248,76 @@ describe("curenergia-invoice-table", () => {
     expect(root(el).textContent).not.toContain("abarca 1");
   });
 
+  it("shows group sums in the columns and own values in the detail", async () => {
+    const el = await mount({
+      contracts: [
+        contract("electricity", [
+          row("F-2", "2026-08-31", {
+            kwh: 200,
+            comparison: comparison({
+              group: ["F-1", "F-2"],
+              invoice_kwh: 500,
+              edata_kwh: 495,
+              delta_kwh: 5,
+              invoice_periods: periods(250, 150, 100),
+              edata_periods: periods(248, 149, 98),
+            }),
+          }),
+        ]),
+      ],
+    });
+    const c = cells(bodyRows(el)[0]);
+    expect(c[1]).toBe("500 kWh");
+    expect(c[2]).toBe("495 kWh");
+    expect(c[3]).toBe("+5 kWh");
+
+    bodyRows(el)[0].click();
+    await el.updateComplete;
+    const detail = ((root(el).querySelector("tr.detail") as HTMLElement).textContent ?? "")
+      .replace(/\s+/g, " ");
+    expect(detail).toContain("Esta factura: 200 kWh");
+    expect(detail).toContain("Comparación del grupo (2 facturas)");
+    expect(detail).toContain("P1: factura 250 kWh / Datadis 248 kWh");
+    expect(detail.indexOf("Esta factura")).toBeLessThan(detail.indexOf("Comparación del grupo"));
+    expect(detail.indexOf("Comparación del grupo")).toBeLessThan(detail.indexOf("P1:"));
+  });
+
+  it("does not show the own-kWh line or group heading for a single invoice", async () => {
+    const el = await mount({ contracts: [contract("electricity", [row("F-1", "2026-07-31")])] });
+    bodyRows(el)[0].click();
+    await el.updateComplete;
+    const detail = (root(el).querySelector("tr.detail") as HTMLElement).textContent ?? "";
+    expect(detail).not.toContain("Esta factura");
+    expect(detail).not.toContain("Comparación del grupo");
+  });
+
+  it("toggles a row with the Space key", async () => {
+    const el = await mount({ contracts: [contract("electricity", [row("F-1", "2026-07-31")])] });
+    bodyRows(el)[0].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    await el.updateComplete;
+    expect(bodyRows(el)[0].getAttribute("aria-expanded")).toBe("true");
+    bodyRows(el)[0].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    await el.updateComplete;
+    expect(bodyRows(el)[0].getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("colours unreadable deltas as error and missing-data deltas as secondary", async () => {
+    const el = await mount({
+      contracts: [
+        contract("electricity", [
+          row("F-2", "2026-08-31", { status: "no_leida" }),
+          row("F-1", "2026-07-31", { status: "sin_datos" }),
+        ]),
+      ],
+    });
+    const [unreadable, noData] = bodyRows(el);
+    const style = (tr: Element, i: number) => tr.querySelectorAll("td")[i].getAttribute("style");
+    expect(style(unreadable, 3)).toContain("var(--error-color)");
+    expect(style(unreadable, 5)).toContain("var(--error-color)");
+    expect(style(noData, 3)).toContain("var(--secondary-text-color)");
+    expect(style(noData, 5)).toContain("var(--secondary-text-color)");
+  });
+
   it("uses English when the locale is not Spanish", async () => {
     const el = await mount({
       hass: hassWith("en"),
@@ -290,7 +360,7 @@ describe("curenergia-invoice-table", () => {
     expect(normalised).toContain("P1: factura 100 kWh / Datadis 99 kWh");
     expect(normalised).toContain("P3: factura 80 kWh / Datadis 79 kWh");
     expect(normalised).toContain("Potencia + energía: factura 50,00 € / e-data 49,50 €");
-    expect(normalised).toContain("1,0 %");
+    expect(normalised).toContain("(Δ 1,0 %)");
     expect(normalised).toContain("0,1234 €/kWh");
     expect(normalised).toContain("F-0");
 
