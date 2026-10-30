@@ -211,9 +211,41 @@ describe("curenergia-invoice-table", () => {
     const style = (tr: Element, index: number) =>
       tr.querySelectorAll("td")[index].getAttribute("style") ?? "";
     expect(style(ok, 3)).toContain("var(--success-color)");
-    expect(style(ok, 5)).toContain("var(--success-color)");
     expect(style(mismatch, 3)).toContain("var(--warning-color)");
-    expect(style(mismatch, 5)).toContain("var(--warning-color)");
+  });
+
+  it("always colours the Δ € cell as secondary (informational)", async () => {
+    const el = await mount({
+      contracts: [
+        contract("electricity", [
+          row("F-2", "2026-08-31", { status: "no_cuadra" }),
+          row("F-1", "2026-07-31", { status: "ok" }),
+        ]),
+      ],
+    });
+    const [mismatch, ok] = bodyRows(el);
+    const style = (tr: Element, index: number) =>
+      tr.querySelectorAll("td")[index].getAttribute("style") ?? "";
+    expect(style(ok, 5)).toContain("var(--secondary-text-color)");
+    expect(style(mismatch, 5)).toContain("var(--secondary-text-color)");
+  });
+
+  it("colours the dash of a missing delta as secondary whatever the status", async () => {
+    const el = await mount({
+      contracts: [
+        contract("electricity", [
+          row("F-2", "2026-08-31", { status: "no_cuadra", comparison: null }),
+          row("F-1", "2026-07-31", { status: "ok", comparison: null }),
+        ]),
+      ],
+    });
+    for (const tr of bodyRows(el)) {
+      const cells = tr.querySelectorAll("td");
+      for (const index of [3, 5]) {
+        expect(cells[index].textContent?.trim()).toBe("—");
+        expect(cells[index].getAttribute("style")).toContain("var(--secondary-text-color)");
+      }
+    }
   });
 
   it("labels estimated and unreadable rows", async () => {
@@ -324,7 +356,7 @@ describe("curenergia-invoice-table", () => {
     const [unreadable, noData] = bodyRows(el);
     const style = (tr: Element, i: number) => tr.querySelectorAll("td")[i].getAttribute("style");
     expect(style(unreadable, 3)).toContain("var(--error-color)");
-    expect(style(unreadable, 5)).toContain("var(--error-color)");
+    expect(style(unreadable, 5)).toContain("var(--secondary-text-color)");
     expect(style(noData, 3)).toContain("var(--secondary-text-color)");
     expect(style(noData, 5)).toContain("var(--secondary-text-color)");
   });

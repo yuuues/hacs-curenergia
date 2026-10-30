@@ -258,7 +258,13 @@ export class CurenergiaInvoiceTable extends LitElement {
     const key = `${contract.entry_id}|${contract.contract}|${invoice.number}`;
     const open = this._expanded.has(key);
     const group = invoice.comparison?.group.length ?? 0;
-    const color = `color: var(${deltaColorVar(invoice.status)})`;
+    const secondary = "color: var(--secondary-text-color)";
+    // Δ kWh is coloured by status (a missing value shows a secondary dash);
+    // Δ € is informational and never takes the status colour.
+    const kwhColor =
+      invoice.comparison?.delta_kwh == null
+        ? secondary
+        : `color: var(${deltaColorVar(invoice.status)})`;
     // A click on the toggle button bubbles to the row, which toggles once;
     // the native button gives focus and Enter/Space for free.
     const toggle = () => this._toggle(key);
@@ -290,9 +296,9 @@ export class CurenergiaInvoiceTable extends LitElement {
         : html`
             <td>${formatKwh(lang, comparison?.invoice_kwh ?? invoice.kwh)}</td>
             <td>${formatKwh(lang, comparison?.edata_kwh ?? null)}</td>
-            <td style=${color}>${formatDelta(lang, comparison?.delta_kwh ?? null, "kwh")}</td>
+            <td style=${kwhColor}>${formatDelta(lang, comparison?.delta_kwh ?? null, "kwh")}</td>
             <td>${formatEur(lang, invoice.total)}</td>
-            <td style=${color}>${formatDelta(lang, comparison?.delta_eur ?? null, "eur")}</td>
+            <td style=${secondary}>${formatDelta(lang, comparison?.delta_eur ?? null, "eur")}</td>
           `;
     return html`
       <tr class="row ${invoice.estimated ? "estimated" : ""}" @click=${toggle}>

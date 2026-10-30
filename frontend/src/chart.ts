@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, svg } from "lit";
 import type { SVGTemplateResult, TemplateResult } from "lit";
-import { formatKwh } from "./format";
+import { formatKwh, formatPeriod } from "./format";
 import { languageOf, t } from "./i18n";
 import type { HomeAssistant, InvoiceRow } from "./types";
 
@@ -20,16 +20,24 @@ const MAX_BAR_WIDTH = 26;
 type Mark = "estimated" | "unreadable" | null;
 
 interface Point {
+  /** X-axis label. */
   label: string;
+  /** Full period, for the tooltip. */
+  period: string;
   invoice: number | null;
   datadis: number | null;
   mark: Mark;
 }
 
-/** `2026-08-28` -> `08/26`, built from the text (no `Date`, so no timezone shift). */
-function monthLabel(iso: string): string {
-  const match = /^(\d{4})-(\d{2})/.exec(iso);
-  return match ? `${match[2]}/${match[1].slice(2)}` : iso;
+/**
+ * `2026-08-28` -> `28/08` (`28/08/26` with `withYear`), built from the text
+ * (no `Date`, so no timezone shift).
+ */
+function dayLabel(iso: string, withYear: boolean): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!match) return iso;
+  const day = `${match[3]}/${match[2]}`;
+  return withYear ? `${day}/${match[1].slice(2)}` : day;
 }
 
 /**
@@ -175,16 +183,17 @@ export class CurenergiaBarChart extends LitElement {
   /** The 12 most recent electricity invoices, oldest first. */
   private _points(): Point[] {
     const electricity = this.invoices.filter((invoice) => invoice.supply === "electricity");
-    return [...electricity]
-      .sort(oldestFirst)
-      .slice(-MAX_INVOICES)
-      .map((invoice) => ({
-        label: monthLabel(invoice.period_end),
-        // Own figures, not the group's (the table shows the group's).
-        invoice: invoice.kwh,
-        datadis: ownDatadis(invoice, electricity),
-        mark: markOf(invoice),
-      }));
+    const shown = [...electricity].sort(oldestFirst).slice(-MAX_INVOICES);
+    // Add the year only when the drawn invoices span more than one.
+    const withYear = new Set(shown.map((invoice) => invoice.period_end.slice(0, 4))).size > 1;
+    return shown.map((invoice) => ({
+      label: dayLabel(invoice.period_end, withYear),
+      period: formatPeriod(invoice.period_start, invoice.period_end),
+      // Own figures, not the group's (the table shows the group's).
+      invoice: invoice.kwh,
+      datadis: ownDatadis(invoice, electricity),
+      mark: markOf(invoice),
+    }));
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -230,7 +239,7 @@ export class CurenergiaBarChart extends LitElement {
         width=${barWidth}
         height=${height}
         rx="2"
-      ><title>${name} ${point.label}: ${formatKwh(lang, value)}${markLabel(mark)}</title></rect>`;
+      ><title>${name} ${point.period}: ${formatKwh(lang, value)}${markLabel(mark)}</title></rect>`;
     };
     const marks = new Set(points.map((point) => point.mark));
 

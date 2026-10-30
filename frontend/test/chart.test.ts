@@ -72,27 +72,44 @@ describe("curenergia-bar-chart", () => {
     expect(root.querySelectorAll("rect.bar.datadis")).toHaveLength(12);
     // The 12 most recent (Jan and Feb 2026 dropped), oldest first.
     expect(labels(chart)).toEqual([
-      "03/26",
-      "04/26",
-      "05/26",
-      "06/26",
-      "07/26",
-      "08/26",
-      "09/26",
-      "10/26",
-      "11/26",
-      "12/26",
-      "01/27",
-      "02/27",
+      "28/03/26",
+      "28/04/26",
+      "28/05/26",
+      "28/06/26",
+      "28/07/26",
+      "28/08/26",
+      "28/09/26",
+      "28/10/26",
+      "28/11/26",
+      "28/12/26",
+      "28/01/27",
+      "28/02/27",
     ]);
   });
 
-  it("uses mm/aa from period_end without timezone shifts", async () => {
+  it("labels the axis with dd/mm of period_end without timezone shifts", async () => {
     const chart = await makeChart([
       invoice(1, "2026-08-01", 10, 9),
-      invoice(2, "2026-12-31", 20, 18),
+      invoice(2, "2026-08-29", 20, 18),
     ]);
-    expect(labels(chart)).toEqual(["08/26", "12/26"]);
+    expect(labels(chart)).toEqual(["01/08", "29/08"]);
+  });
+
+  it("adds the year (dd/mm/aa) when the invoices span more than one year", async () => {
+    const chart = await makeChart([
+      invoice(1, "2026-12-31", 10, 9),
+      invoice(2, "2027-01-01", 20, 18),
+    ]);
+    expect(labels(chart)).toEqual(["31/12/26", "01/01/27"]);
+  });
+
+  it("keeps the full period in the tooltip", async () => {
+    const rows = [{ ...invoice(1, "2026-08-29", 10, 9), period_start: "2026-07-29" }];
+    const chart = await makeChart(rows);
+    const titles = [...chart.shadowRoot!.querySelectorAll("rect.bar title")].map(
+      (el) => el.textContent ?? "",
+    );
+    expect(titles[0]).toContain("29/07 – 29/08/2026");
   });
 
   it("scales bars to the maximum and takes the colours from theme variables", async () => {
