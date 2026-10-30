@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pycurenergia"
-version = "0.1.0"
+version = "0.2.0"
 description = "Parser de facturas en PDF de CurEnergía (proyecto no oficial)."
 readme = "README.md"
 authors = [{ name = "yuuues" }]

@@ -12,9 +12,10 @@ from pycurenergia._parsing import (
     convert,
     search,
     to_decimal,
+    to_reading,
 )
 from pycurenergia.errors import InvoiceParseError
-from pycurenergia.models import Concept, ConceptKey, Invoice, SupplyType
+from pycurenergia.models import Concept, ConceptKey, Invoice, MeterReading, SupplyType
 from pycurenergia.numbers import parse_dmy, parse_spanish_date
 
 _DATE = r"\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóú]+\s+de\s+\d{4}"
@@ -35,6 +36,9 @@ _VAT_RE = re.compile(
 )
 _ESTIMATED_BANNER = "Factura con lectura estimada"
 _READING_RE = re.compile(r"Lectura actual:[ \t]*(real|estimada)\b")
+_METER_VALUE = rf"(real|estimada)[ \t]+({NUM})[ \t]*m3[ \t]+realizada el[ \t]+({_DMY})"
+_CURRENT_METER_RE = re.compile(rf"Lectura actual:[ \t]*{_METER_VALUE}")
+_PREVIOUS_METER_RE = re.compile(rf"Lectura anterior:[ \t]*{_METER_VALUE}")
 # Otras marcas del tipo de lectura: si alguna es «estimada», la factura lo es.
 _ESTIMATED_MARKERS_RE = re.compile(
     r"(?:Consumo kWh:|Consumo en m3:)[ \t]*(real|estimada)\b"
@@ -106,6 +110,24 @@ def _parse_concepts(text: str) -> tuple[Concept, ...]:
     return tuple(concepts)
 
 
+def _meter_readings(pattern: re.Pattern[str], text: str) -> list[MeterReading]:
+    """Lecturas válidas de ``pattern``; las que no se entienden se ignoran."""
+    readings: list[MeterReading] = []
+    for kind, value, read_on_text in pattern.findall(text):
+        try:
+            read_on = parse_dmy(read_on_text)
+        except ValueError:
+            continue
+        reading = to_reading(value, read_on, kind == "estimada")
+        if reading is not None:
+            readings.append(reading)
+    return readings
+
+
+def _by_date(reading: MeterReading) -> date:
+    return reading.read_on
+
+
 def parse_gas(text: str) -> Invoice:
     """Interpreta el texto extraído de una factura de gas.
 
@@ -116,7 +138,9 @@ def parse_gas(text: str) -> Invoice:
     aparece ``Factura con lectura estimada`` o si es ``estimada`` alguna
     ``Lectura actual:``, ``Consumo kWh:``, ``Consumo en m3:`` o ``Energía
     facturada (…)``. Si no aparecen, ``tariff`` y ``access_tariff`` valen
-    cadena vacía y ``energy_price_kwh`` ``None``.
+    cadena vacía y ``energy_price_kwh`` ``None``. Las lecturas del contador
+    nunca invalidan la factura: si no se entienden, valen ``None``; con varias,
+    ``reading_m3`` es la más reciente y ``previous_reading_m3`` la más antigua.
     """
     number = search(_NUMBER_RE, text, "number").group(1)
 
@@ -169,5 +193,11 @@ def parse_gas(text: str) -> Invoice:
             None
             if energy_price is None
             else to_decimal(energy_price.group(1), "energy_price_kwh")
+        ),
+        reading_m3=max(
+            _meter_readings(_CURRENT_METER_RE, text), key=_by_date, default=None
+        ),
+        previous_reading_m3=min(
+            _meter_readings(_PREVIOUS_METER_RE, text), key=_by_date, default=None
         ),
     )

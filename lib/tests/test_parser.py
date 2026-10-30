@@ -42,7 +42,7 @@ def test_public_api():
 
     import pycurenergia
 
-    assert pycurenergia.__version__ == "0.1.0"
+    assert pycurenergia.__version__ == "0.2.0"
     assert pycurenergia.__version__ == importlib.metadata.version("pycurenergia")
     assert all(hasattr(pycurenergia, name) for name in pycurenergia.__all__)
     assert {
@@ -51,6 +51,7 @@ def test_public_api():
         "Invoice",
         "Concept",
         "ConceptKey",
+        "MeterReading",
         "SupplyType",
         "Problem",
         "check_consistency",

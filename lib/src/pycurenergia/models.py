@@ -37,6 +37,15 @@ class Concept:
 
 
 @dataclass(frozen=True, slots=True)
+class MeterReading:
+    """Lectura del contador: valor acumulado, fecha y si es estimada."""
+
+    value: Decimal
+    read_on: date
+    estimated: bool
+
+
+@dataclass(frozen=True, slots=True)
 class Invoice:
     """Factura ya interpretada.
 
@@ -44,7 +53,9 @@ class Invoice:
     incluye el IVA, que va en ``vat_rate``, ``vat_base`` y ``vat_amount``;
     ``vat_rate`` es el porcentaje (21 para «21 %»). ``cups`` va sin espacios.
     ``energy_price_kwh`` es el precio de la energía en €/kWh (``None`` si la
-    factura no lo indica).
+    factura no lo indica). Las lecturas del contador son opcionales: en luz,
+    ``reading_p1`` a ``reading_p3`` (kWh); en gas, ``reading_m3`` y
+    ``previous_reading_m3`` (m³).
     """
 
     supply: SupplyType
@@ -70,6 +81,11 @@ class Invoice:
     contracted_power_kw: tuple[Decimal, ...] = ()
     late_interest: Decimal = Decimal(0)
     energy_price_kwh: Decimal | None = None
+    reading_p1: MeterReading | None = None
+    reading_p2: MeterReading | None = None
+    reading_p3: MeterReading | None = None
+    reading_m3: MeterReading | None = None
+    previous_reading_m3: MeterReading | None = None
 
     def concept_total(self, *keys: ConceptKey) -> Decimal:
         """Suma el importe de los conceptos cuya clave esté en ``keys``."""

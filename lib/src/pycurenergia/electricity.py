@@ -13,9 +13,10 @@ from pycurenergia._parsing import (
     convert,
     search,
     to_decimal,
+    to_reading,
 )
 from pycurenergia.errors import InvoiceParseError
-from pycurenergia.models import Concept, ConceptKey, Invoice, SupplyType
+from pycurenergia.models import Concept, ConceptKey, Invoice, MeterReading, SupplyType
 from pycurenergia.numbers import parse_spanish_date
 
 _DATE = r"\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóú]+\s+de\s+\d{4}"
@@ -36,6 +37,8 @@ _VAT_RE = re.compile(
 )
 _LATE_INTEREST_RE = re.compile(rf"Intereses de demora \(\*\)\s*({NUM})\s*€")
 _ESTIMATED_RE = re.compile(r"Lectura actual \((real|estimada)\)")
+_METER_HEADER_RE = re.compile(rf"Lectura actual \((real|estimada)\)\s*\(({_DATE})\)")
+_METER_PERIOD_RE = r"Lectura en P{n}\b[^:\n]*:\s*(" + NUM + r")\s*kWh"
 _ENERGY_PRICE_RE = re.compile(
     rf"Coste de la energía:\s*{NUM}\s*kWh\s*x\s*({NUM})\s*€/kWh"
 )
@@ -85,6 +88,36 @@ def _parse_concepts(text: str) -> tuple[Concept, ...]:
         key = _CONCEPT_KEYS.get(label, ConceptKey.OTHER)
         concepts.append(Concept(key, label, to_decimal(amount, "concepts")))
     return tuple(concepts)
+
+
+def _meter_readings(
+    text: str,
+) -> tuple[MeterReading | None, MeterReading | None, MeterReading | None]:
+    """Lecturas de P1, P2 y P3 del bloque ``Lectura actual`` más reciente.
+
+    Lo que no se entiende vale ``None``: una lectura nunca invalida la factura.
+    """
+    headers = list(_METER_HEADER_RE.finditer(text))
+    blocks: list[tuple[date, bool, str]] = []
+    for index, header in enumerate(headers):
+        try:
+            read_on = parse_spanish_date(header.group(2))
+        except ValueError:
+            continue
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(text)
+        blocks.append(
+            (read_on, header.group(1) == "estimada", text[header.end() : end])
+        )
+    if not blocks:
+        return None, None, None
+
+    read_on, estimated, block = max(blocks, key=lambda item: item[0])
+
+    def period(n: int) -> MeterReading | None:
+        match = re.search(_METER_PERIOD_RE.format(n=n), block)
+        return None if match is None else to_reading(match.group(1), read_on, estimated)
+
+    return period(1), period(2), period(3)
 
 
 def parse_electricity(text: str) -> Invoice:
@@ -140,6 +173,7 @@ def parse_electricity(text: str) -> Invoice:
     energy_price = _ENERGY_PRICE_RE.search(text)
     tariff = _TARIFF_RE.search(text)
     access_tariff = _ACCESS_TARIFF_RE.search(text)
+    reading_p1, reading_p2, reading_p3 = _meter_readings(text)
 
     return Invoice(
         supply=SupplyType.ELECTRICITY,
@@ -172,4 +206,7 @@ def parse_electricity(text: str) -> Invoice:
             if energy_price is None
             else to_decimal(energy_price.group(1), "energy_price_kwh")
         ),
+        reading_p1=reading_p1,
+        reading_p2=reading_p2,
+        reading_p3=reading_p3,
     )

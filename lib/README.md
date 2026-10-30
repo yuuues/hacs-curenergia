@@ -37,6 +37,10 @@ print(check_consistency(invoice))  # [] si los importes cuadran
   cuadra.
 - `invoice.energy_price_kwh` es el precio de la energía en €/kWh, o `None` si
   la factura no lo indica.
+- Lecturas del contador, como `MeterReading` (`value`, `read_on`, `estimated`),
+  o `None` si la factura no las trae o no se entienden (nunca la invalidan):
+  en luz, `reading_p1`, `reading_p2` y `reading_p3` (kWh); en gas, `reading_m3`
+  y `previous_reading_m3` (m³).
 
 ## Publicar
 

@@ -2,9 +2,11 @@
 
 import re
 from collections.abc import Callable
+from datetime import date
 from decimal import Decimal
 
 from pycurenergia.errors import InvoiceParseError
+from pycurenergia.models import MeterReading
 from pycurenergia.numbers import parse_decimal
 
 NUM = r"-?\d[\d.]*(?:,\d+)?"
@@ -50,3 +52,11 @@ def convert[T](parse: Callable[[str], T], value: str, field: str) -> T:
 def to_decimal(value: str, field: str) -> Decimal:
     """Convierte un número español a ``Decimal`` o lanza ``InvoiceParseError``."""
     return convert(parse_decimal, value, field)
+
+
+def to_reading(value: str, read_on: date, estimated: bool) -> MeterReading | None:
+    """Crea una lectura del contador; ``None`` si el número no es válido."""
+    try:
+        return MeterReading(to_decimal(value, "reading"), read_on, estimated)
+    except InvoiceParseError:
+        return None

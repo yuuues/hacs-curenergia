@@ -3,7 +3,7 @@
 from importlib.metadata import version
 
 from .errors import InvoiceParseError, InvoiceReadError, UnsupportedInvoiceError
-from .models import Concept, ConceptKey, Invoice, SupplyType
+from .models import Concept, ConceptKey, Invoice, MeterReading, SupplyType
 from .parser import parse_invoice_pdf, parse_invoice_text
 from .validation import Problem, check_consistency
 
@@ -15,6 +15,7 @@ __all__ = [
     "Invoice",
     "InvoiceParseError",
     "InvoiceReadError",
+    "MeterReading",
     "Problem",
     "SupplyType",
     "UnsupportedInvoiceError",
