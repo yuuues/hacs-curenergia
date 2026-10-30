@@ -3,7 +3,7 @@ import type { TemplateResult } from "lit";
 import { fetchInvoices, fetchSummary } from "./api";
 import { formatEur, formatSignedPct } from "./format";
 import { languageOf, t } from "./i18n";
-import type { ContractInvoices, HomeAssistant, InvoiceRow, Summary, Supply } from "./types";
+import type { ContractInvoices, HomeAssistant, Summary, Supply } from "./types";
 import "./invoice-table";
 import "./chart";
 
@@ -93,6 +93,12 @@ export class CurenergiaPanel extends LitElement {
       border-left: 4px solid var(--warning-color);
       background: var(--card-background-color);
       border-radius: 4px;
+    }
+    .chart-name {
+      color: var(--secondary-text-color);
+      font-size: 1em;
+      font-weight: 500;
+      margin: 0 0 4px;
     }
     .message {
       padding: 8px 0;
@@ -193,13 +199,21 @@ export class CurenergiaPanel extends LitElement {
     if (this._data.length === 0) {
       return html`<div class="message">${t(hass, "empty")}</div>`;
     }
-    const electricity: InvoiceRow[] = this._data
-      .filter((contract) => contract.supply === "electricity")
-      .flatMap((contract) => contract.invoices);
+    // One chart per electricity contract, each with its own most recent invoices.
+    const electricity = this._data.filter((contract) => contract.supply === "electricity");
+    const named = electricity.length > 1;
     return html`
-      <div class="section">
-        <curenergia-bar-chart .hass=${hass} .invoices=${electricity}></curenergia-bar-chart>
-      </div>
+      ${electricity.map(
+        (contract) => html`
+          <div class="section">
+            ${named ? html`<h3 class="chart-name">${contract.name}</h3>` : nothing}
+            <curenergia-bar-chart
+              .hass=${hass}
+              .invoices=${contract.invoices}
+            ></curenergia-bar-chart>
+          </div>
+        `,
+      )}
       <div class="section">
         <curenergia-invoice-table
           .hass=${hass}

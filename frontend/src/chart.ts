@@ -17,16 +17,49 @@ const PLOT_HEIGHT = BASELINE - PAD_TOP;
 const PLOT_WIDTH = WIDTH - PAD_LEFT - PAD_RIGHT;
 const MAX_BAR_WIDTH = 26;
 
+type Mark = "estimated" | "unreadable" | null;
+
 interface Point {
   label: string;
   invoice: number | null;
   datadis: number | null;
+  mark: Mark;
 }
 
 /** `2026-08-28` -> `08/26`, built from the text (no `Date`, so no timezone shift). */
 function monthLabel(iso: string): string {
   const match = /^(\d{4})-(\d{2})/.exec(iso);
   return match ? `${match[2]}/${match[1].slice(2)}` : iso;
+}
+
+/**
+ * Datadis kWh of the invoice's own period.
+ *
+ * A row whose comparison covers a group (a real invoice after estimated ones)
+ * holds the Datadis figure of the whole group: the own share is that figure
+ * minus the own Datadis figures of the other members (the rows settled by this
+ * one). If any of them is missing, the share cannot be known: `null`.
+ */
+function ownDatadis(invoice: InvoiceRow, all: InvoiceRow[]): number | null {
+  const comparison = invoice.comparison;
+  if (!comparison || comparison.edata_kwh === null) return null;
+  if (comparison.group.length <= 1) return comparison.edata_kwh;
+  const members = all.filter((row) => row.in_group_of === invoice.number);
+  const others = comparison.group.filter((number) => number !== invoice.number);
+  let share = comparison.edata_kwh;
+  for (const number of others) {
+    const member = members.find((row) => row.number === number);
+    const edata = member?.comparison?.edata_kwh ?? null;
+    if (edata === null) return null;
+    share -= edata;
+  }
+  // Same rounding as the websocket figures (2 decimals), without float noise.
+  return Math.round(share * 100) / 100;
+}
+
+function markOf(invoice: InvoiceRow): Mark {
+  if (invoice.status === "no_leida") return "unreadable";
+  return invoice.estimated ? "estimated" : null;
 }
 
 function oldestFirst(a: InvoiceRow, b: InvoiceRow): number {
@@ -37,7 +70,10 @@ function oldestFirst(a: InvoiceRow, b: InvoiceRow): number {
   );
 }
 
-/** Bar chart of kWh per electricity invoice: invoice against Datadis. */
+/**
+ * Bar chart of kWh per electricity invoice of one contract: the invoice's own
+ * kWh against Datadis for its own period.
+ */
 export class CurenergiaBarChart extends LitElement {
   static properties = {
     hass: { attribute: false },
@@ -89,6 +125,17 @@ export class CurenergiaBarChart extends LitElement {
     .bar.datadis {
       fill: var(--secondary-text-color);
     }
+    /* Estimated or unreadable invoice figure: lighter fill and dashed outline. */
+    .bar.invoice.estimated,
+    .bar.invoice.unreadable {
+      fill-opacity: 0.35;
+      stroke: var(--primary-color);
+      stroke-width: 1.5;
+      stroke-dasharray: 3 2;
+    }
+    .bar.invoice.unreadable {
+      stroke: var(--error-color);
+    }
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -114,19 +161,29 @@ export class CurenergiaBarChart extends LitElement {
     .swatch.datadis {
       background: var(--secondary-text-color);
     }
+    .swatch.invoice.estimated,
+    .swatch.invoice.unreadable {
+      background: transparent;
+      border: 1.5px dashed var(--primary-color);
+      box-sizing: border-box;
+    }
+    .swatch.invoice.unreadable {
+      border-color: var(--error-color);
+    }
   `;
 
   /** The 12 most recent electricity invoices, oldest first. */
   private _points(): Point[] {
-    return this.invoices
-      .filter((invoice) => invoice.supply === "electricity")
+    const electricity = this.invoices.filter((invoice) => invoice.supply === "electricity");
+    return [...electricity]
       .sort(oldestFirst)
       .slice(-MAX_INVOICES)
       .map((invoice) => ({
         label: monthLabel(invoice.period_end),
-        // Same figures as the table: the comparison's, when there is one.
-        invoice: invoice.comparison?.invoice_kwh ?? invoice.kwh,
-        datadis: invoice.comparison?.edata_kwh ?? null,
+        // Own figures, not the group's (the table shows the group's).
+        invoice: invoice.kwh,
+        datadis: ownDatadis(invoice, electricity),
+        mark: markOf(invoice),
       }));
   }
 
@@ -149,23 +206,33 @@ export class CurenergiaBarChart extends LitElement {
     const invoiceLabel = t(hass, "chart_invoice");
     const datadisLabel = t(hass, "chart_datadis");
 
+    const markLabel = (mark: Mark): string =>
+      mark === "estimated"
+        ? ` (${t(hass, "pill_estimated")})`
+        : mark === "unreadable"
+          ? ` (${t(hass, "pill_unreadable")})`
+          : "";
+
     const bar = (
       kind: "invoice" | "datadis",
       x: number,
       value: number,
-      period: string,
+      point: Point,
     ): SVGTemplateResult => {
       const height = heightOf(value);
       const name = kind === "invoice" ? invoiceLabel : datadisLabel;
+      // Only the invoice figure is estimated or unreadable; Datadis is measured.
+      const mark = kind === "invoice" ? point.mark : null;
       return svg`<rect
-        class="bar ${kind}"
+        class="bar ${kind} ${mark ?? ""}"
         x=${x}
         y=${BASELINE - height}
         width=${barWidth}
         height=${height}
         rx="2"
-      ><title>${name} ${period}: ${formatKwh(lang, value)}</title></rect>`;
+      ><title>${name} ${point.label}: ${formatKwh(lang, value)}${markLabel(mark)}</title></rect>`;
     };
+    const marks = new Set(points.map((point) => point.mark));
 
     return html`
       <div class="title">${t(hass, "chart_title")}</div>
@@ -193,7 +260,7 @@ export class CurenergiaBarChart extends LitElement {
                   "invoice",
                   paired ? center - barWidth - 1 : center - barWidth / 2,
                   point.invoice,
-                  point.label,
+                  point,
                 )
               : nothing}
             ${point.datadis !== null
@@ -201,7 +268,7 @@ export class CurenergiaBarChart extends LitElement {
                   "datadis",
                   point.invoice !== null ? center + 1 : center - barWidth / 2,
                   point.datadis,
-                  point.label,
+                  point,
                 )
               : nothing}
             <text class="x-label" x=${center} y=${HEIGHT - 8} text-anchor="middle">${point.label}</text>
@@ -211,6 +278,12 @@ export class CurenergiaBarChart extends LitElement {
       <div class="legend">
         <span><i class="swatch invoice"></i>${invoiceLabel}</span>
         <span><i class="swatch datadis"></i>${datadisLabel}</span>
+        ${marks.has("estimated")
+          ? html`<span><i class="swatch invoice estimated"></i>${t(hass, "pill_estimated")}</span>`
+          : nothing}
+        ${marks.has("unreadable")
+          ? html`<span><i class="swatch invoice unreadable"></i>${t(hass, "pill_unreadable")}</span>`
+          : nothing}
       </div>
     `;
   }

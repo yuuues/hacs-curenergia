@@ -154,6 +154,67 @@ describe("curenergia-bar-chart", () => {
     }
   });
 
+  describe("per-invoice figures", () => {
+    // E1 is estimated and settled by R; R's comparison covers both.
+    function group(memberComparison: boolean): InvoiceRow[] {
+      const e1: InvoiceRow = {
+        ...invoice(1, "2026-06-30", 300, memberComparison ? 310 : null),
+        number: "E1",
+        estimated: true,
+        status: "estimada",
+        in_group_of: "R",
+      };
+      if (e1.comparison) e1.comparison = { ...e1.comparison, group: ["E1"] };
+      const r: InvoiceRow = {
+        ...invoice(2, "2026-07-31", 900, 1200),
+        number: "R",
+        comparison: { group: ["E1", "R"], invoice_kwh: 1200, edata_kwh: 1200 } as never,
+      };
+      return [r, e1];
+    }
+
+    const titles = (chart: CurenergiaBarChart, kind: "invoice" | "datadis") =>
+      [...chart.shadowRoot!.querySelectorAll(`rect.bar.${kind} title`)].map(
+        (el) => el.textContent ?? "",
+      );
+
+    it("draws each invoice's own kWh and the Datadis share of its own period", async () => {
+      const chart = await makeChart(group(true));
+      const invoiceTitles = titles(chart, "invoice");
+      const datadisTitles = titles(chart, "datadis");
+      expect(invoiceTitles).toHaveLength(2);
+      expect(invoiceTitles[0]).toContain("300 kWh");
+      expect(invoiceTitles[1]).toContain("900 kWh");
+      expect(datadisTitles).toHaveLength(2);
+      expect(datadisTitles[0]).toContain("310 kWh");
+      expect(datadisTitles[1]).toContain("890 kWh");
+    });
+
+    it("omits the Datadis bar of a group whose member has no comparison", async () => {
+      const chart = await makeChart(group(false));
+      expect(titles(chart, "invoice")).toHaveLength(2);
+      expect(titles(chart, "datadis")).toHaveLength(0);
+    });
+
+    it("draws estimated and unreadable invoices with their own style and tooltip", async () => {
+      const unreadable: InvoiceRow = {
+        ...invoice(3, "2026-08-31", 100, 98),
+        status: "no_leida",
+      };
+      const chart = await makeChart([...group(true), unreadable]);
+      const bars = [...chart.shadowRoot!.querySelectorAll("rect.bar.invoice")];
+      expect(bars[0].classList.contains("estimated")).toBe(true);
+      expect(bars[0].querySelector("title")!.textContent).toContain("estimada");
+      expect(bars[1].classList.contains("estimated")).toBe(false);
+      expect(bars[1].classList.contains("unreadable")).toBe(false);
+      expect(bars[2].classList.contains("unreadable")).toBe(true);
+      expect(bars[2].querySelector("title")!.textContent).toContain("no se pudo leer");
+      const css = (chart.constructor as unknown as { styles: { cssText: string } }).styles
+        .cssText;
+      expect(css).toMatch(/\.bar\.invoice\.estimated[^}]*stroke-dasharray/);
+    });
+  });
+
   it("does not fail with all-zero values", async () => {
     const chart = await makeChart([invoice(1, "2026-07-31", 0, 0)]);
     const bars = [...chart.shadowRoot!.querySelectorAll("rect.bar")];

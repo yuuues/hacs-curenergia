@@ -174,6 +174,41 @@ describe("curenergia-panel", () => {
     expect(chart.invoices.map((i) => i.number)).toEqual(["F1"]);
     expect(table.contracts).toEqual(CONTRACTS);
     expect(table.maxInvoices).toBeUndefined();
+    // A single electricity contract: no contract subtitle over the chart.
+    expect(panel.shadowRoot!.querySelector(".chart-name")).toBeNull();
+  });
+
+  it("draws one chart per electricity contract, named when there are several", async () => {
+    const invoice = CONTRACTS[0].invoices[0];
+    const contracts: ContractInvoices[] = [
+      CONTRACTS[0],
+      {
+        entry_id: "e1",
+        contract: "c2",
+        supply: "electricity",
+        name: "Garaje",
+        invoices: [{ ...invoice, number: "G1" }, { ...invoice, number: "G2" }],
+      },
+      {
+        entry_id: "e1",
+        contract: "c3",
+        supply: "gas",
+        name: "Gas casa",
+        invoices: [{ ...invoice, number: "GAS1", supply: "gas" }],
+      },
+    ];
+    const panel = await makePanel(api({}, contracts));
+    const charts = [
+      ...panel.shadowRoot!.querySelectorAll("curenergia-bar-chart"),
+    ] as unknown as { invoices: { number: string }[] }[];
+    expect(charts.map((chart) => chart.invoices.map((i) => i.number))).toEqual([
+      ["F1"],
+      ["G1", "G2"],
+    ]);
+    const names = [...panel.shadowRoot!.querySelectorAll(".chart-name")].map((el) =>
+      el.textContent!.trim(),
+    );
+    expect(names).toEqual(["Casa", "Garaje"]);
   });
 
   it("shows the empty text with no contracts", async () => {
