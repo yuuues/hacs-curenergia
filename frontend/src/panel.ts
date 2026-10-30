@@ -231,6 +231,11 @@ export class CurenergiaPanel extends LitElement {
               ${t(hass, "panel_unreadable", { n: summary.unreadable_emails })}
             </div>`
           : nothing}
+        ${summary && summary.unsupported_emails > 0
+          ? html`<div class="warning">
+              ${t(hass, "panel_unsupported", { n: summary.unsupported_emails })}
+            </div>`
+          : nothing}
         ${this._renderBody(hass)}
       </div>
     `;

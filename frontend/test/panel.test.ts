@@ -146,6 +146,17 @@ describe("curenergia-panel", () => {
     expect(text(panel)).toContain("2 correos con factura que no se pudo leer");
   });
 
+  it("warns about unsupported e-mails with their count", async () => {
+    const es = await makePanel(api({ unsupported_emails: 3 }));
+    expect(text(es)).toContain(
+      "Correos con factura no soportada (rectificativa o abono): 3",
+    );
+    const en = await makePanel(api({ unsupported_emails: 1 }), "en");
+    expect(text(en)).toContain(
+      "E-mails with an unsupported invoice (corrective or credit note): 1",
+    );
+  });
+
   it("shows no warnings when there is nothing to warn about", async () => {
     const panel = await makePanel(api());
     expect(panel.shadowRoot!.querySelectorAll(".warning")).toHaveLength(0);

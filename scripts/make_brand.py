@@ -2,7 +2,8 @@
 
 Icono genérico: una hoja de factura con tres líneas y un rayo ámbar en la
 esquina inferior derecha, sobre un cuadrado redondeado. No usa logos ni colores
-de CurEnergía. La salida es determinista: misma salida en cada ejecución.
+de CurEnergía. La salida es determinista para una versión dada de Pillow: el
+suavizado de bordes puede cambiar algún píxel entre versiones.
 
     uv run --with pillow python scripts/make_brand.py
 """

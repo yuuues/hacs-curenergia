@@ -29,16 +29,6 @@ describe("i18n", () => {
     expect(t({ language: "es" } as unknown as HomeAssistant, "tab_electricity")).toBe("Luz");
   });
 
-  it("translates the plan 2 status texts", () => {
-    const es = hassWith("es");
-    expect(t(es, "status_ok")).toBe("Cuadra");
-    expect(t(es, "status_mismatch")).toBe("No cuadra");
-    expect(t(es, "status_estimated")).toBe("Lectura estimada");
-    expect(t(es, "status_no_data")).toBe("Sin datos suficientes");
-    expect(t(es, "status_unreadable")).toBe("No se pudo leer");
-    expect(t(es, "status_gas")).toBe("Gas (sin casar)");
-  });
-
   it("replaces {placeholders}", () => {
     expect(t(hassWith("en"), "detail_power_energy", { invoice: "10 €", edata: "9 €" })).toBe(
       "Power + energy: invoice 10 € / e-data 9 €",

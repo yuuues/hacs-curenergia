@@ -150,10 +150,9 @@ La tarjeta y el panel comparten la misma tabla, con pestañas **Luz** y **Gas**:
 - El color de la diferencia sigue el estado: verde `ok`, ámbar `no_cuadra`, gris
   `estimada`, `sin_datos` y `gas`, rojo `no_leida`. Las facturas estimadas y las
   ilegibles llevan una pastilla «estimada» / «no se pudo leer».
-- **Fila desplegable** (pulsa una fila): número y fecha de emisión, «Potencia +
-  energía: factura X € / e-data Y €» con la diferencia en %, kWh por periodo
-  P1/P2/P3 (factura / Datadis), conceptos de la factura, precio de la energía y
-  avisos de lectura. Si la factura se compara en grupo con otras (una real tras
+- **Fila desplegable** (pulsa una fila): conceptos de la factura e IVA, kWh por periodo
+  P1/P2/P3 (factura / Datadis), «Potencia + energía: factura X € / e-data Y €» con la
+  diferencia en %, y precio de la energía. Si la factura se compara en grupo con otras (una real tras
   estimadas), el detalle separa **«Esta factura»** de **«Comparación del grupo»**.
 - Si hay dos contratos del mismo suministro, cada uno lleva su subtítulo con el
   nombre del contrato. Sin facturas se muestra «Todavía no hay facturas».
@@ -187,10 +186,10 @@ los demás usuarios no lo ven. Muestra:
 
 - **Cabecera:** facturado en los últimos 12 meses, diferencia % de kWh entre factura
   y Datadis y número de lecturas estimadas.
-- **Gráfico de barras** de los **kWh** de cada factura frente a los de Datadis.
-- La tabla de arriba, con un selector de cuenta si tienes varias entradas.
-- Avisos si hay correos con factura que no se pudieron leer, correos no soportados o
-  un error al leer el correo (en ese caso se siguen mostrando las facturas guardadas).
+- **Gráfico de barras** de los **kWh** de cada factura **de luz** frente a los de Datadis.
+- La tabla de arriba, con las facturas de todas las entradas de la integración.
+- Avisos si hay correos con factura que no se pudieron leer, correos con facturas no
+  soportadas (rectificativas o abonos) o un error al leer el correo (en ese caso se siguen mostrando las facturas guardadas).
 
 Para quitarlo, desactiva la opción **Mostrar panel lateral** en las opciones de la
 integración (si hay varias entradas basta con que una lo tenga activado para que
