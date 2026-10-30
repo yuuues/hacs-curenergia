@@ -104,6 +104,8 @@ const headers = (el: HTMLElement) =>
   [...root(el).querySelectorAll("thead th")].map((th) => th.textContent?.trim());
 const bodyRows = (el: HTMLElement) =>
   [...root(el).querySelectorAll<HTMLElement>("tbody tr.row")];
+const toggleOf = (tr: Element) =>
+  tr.querySelector("td:first-child button.toggle") as HTMLButtonElement;
 const cells = (tr: Element) => [...tr.querySelectorAll("td")].map((td) => td.textContent?.trim());
 
 beforeEach(() => {
@@ -188,7 +190,7 @@ describe("curenergia-invoice-table", () => {
         ]),
       ],
     });
-    bodyRows(el)[0].click();
+    toggleOf(bodyRows(el)[0]).click();
     await el.updateComplete;
     const text = root(el).textContent ?? "";
     expect(text).not.toContain("NaN");
@@ -271,7 +273,7 @@ describe("curenergia-invoice-table", () => {
     expect(c[2]).toBe("495 kWh");
     expect(c[3]).toBe("+5 kWh");
 
-    bodyRows(el)[0].click();
+    toggleOf(bodyRows(el)[0]).click();
     await el.updateComplete;
     const detail = ((root(el).querySelector("tr.detail") as HTMLElement).textContent ?? "")
       .replace(/\s+/g, " ");
@@ -284,21 +286,30 @@ describe("curenergia-invoice-table", () => {
 
   it("does not show the own-kWh line or group heading for a single invoice", async () => {
     const el = await mount({ contracts: [contract("electricity", [row("F-1", "2026-07-31")])] });
-    bodyRows(el)[0].click();
+    toggleOf(bodyRows(el)[0]).click();
     await el.updateComplete;
     const detail = (root(el).querySelector("tr.detail") as HTMLElement).textContent ?? "";
     expect(detail).not.toContain("Esta factura");
     expect(detail).not.toContain("Comparación del grupo");
   });
 
-  it("toggles a row with the Space key", async () => {
+  it("toggles a row with a native button in its first cell (Enter/Space for free)", async () => {
     const el = await mount({ contracts: [contract("electricity", [row("F-1", "2026-07-31")])] });
-    bodyRows(el)[0].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    const tr = bodyRows(el)[0];
+    const button = toggleOf(tr);
+    expect(button.localName).toBe("button");
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.closest("td")).toBe(tr.querySelector("td"));
+    expect(button.textContent).toContain("01/07 – 31/07/2026");
+    // The row itself is no longer a focus stop nor carries the state.
+    expect(tr.hasAttribute("tabindex")).toBe(false);
+    expect(tr.hasAttribute("aria-expanded")).toBe(false);
+    button.click();
     await el.updateComplete;
-    expect(bodyRows(el)[0].getAttribute("aria-expanded")).toBe("true");
-    bodyRows(el)[0].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(toggleOf(bodyRows(el)[0]).getAttribute("aria-expanded")).toBe("true");
+    toggleOf(bodyRows(el)[0]).click();
     await el.updateComplete;
-    expect(bodyRows(el)[0].getAttribute("aria-expanded")).toBe("false");
+    expect(toggleOf(bodyRows(el)[0]).getAttribute("aria-expanded")).toBe("false");
   });
 
   it("colours unreadable deltas as error and missing-data deltas as secondary", async () => {
@@ -336,7 +347,7 @@ describe("curenergia-invoice-table", () => {
     expect(bodyRows(el)[0].textContent).toContain("covers 2 invoices");
   });
 
-  it("expands a row on click and Enter", async () => {
+  it("expands a row on a click anywhere on it and on its toggle button", async () => {
     const el = await mount({
       contracts: [
         contract("electricity", [
@@ -346,12 +357,12 @@ describe("curenergia-invoice-table", () => {
       ],
     });
     const [first, second] = bodyRows(el);
-    expect(first.getAttribute("aria-expanded")).toBe("false");
+    expect(toggleOf(first).getAttribute("aria-expanded")).toBe("false");
     expect(root(el).querySelector("tr.detail")).toBeNull();
 
-    first.click();
+    (first.querySelectorAll("td")[2] as HTMLElement).click();
     await el.updateComplete;
-    expect(first.getAttribute("aria-expanded")).toBe("true");
+    expect(toggleOf(first).getAttribute("aria-expanded")).toBe("true");
     const detail = (root(el).querySelector("tr.detail") as HTMLElement).textContent ?? "";
     const normalised = detail.replace(/\s/g, " ");
     expect(normalised).toContain("Término de potencia");
@@ -366,12 +377,12 @@ describe("curenergia-invoice-table", () => {
 
     first.click();
     await el.updateComplete;
-    expect(first.getAttribute("aria-expanded")).toBe("false");
+    expect(toggleOf(first).getAttribute("aria-expanded")).toBe("false");
     expect(root(el).querySelector("tr.detail")).toBeNull();
 
-    second.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    toggleOf(second).click();
     await el.updateComplete;
-    expect(bodyRows(el)[1].getAttribute("aria-expanded")).toBe("true");
+    expect(toggleOf(bodyRows(el)[1]).getAttribute("aria-expanded")).toBe("true");
     expect((root(el).querySelector("tr.detail") as HTMLElement).textContent).toContain(
       "Regularizada en la factura F-1",
     );
@@ -473,11 +484,11 @@ describe("curenergia-invoice-table", () => {
         contract("gas", [gasRow("F-1", "2026-07-31")], "Gas", "G1"),
       ],
     });
-    bodyRows(el)[0].click();
+    toggleOf(bodyRows(el)[0]).click();
     await el.updateComplete;
     root(el).querySelectorAll<HTMLElement>("[role=tab]")[1].click();
     await el.updateComplete;
-    expect(bodyRows(el)[0].getAttribute("aria-expanded")).toBe("false");
+    expect(toggleOf(bodyRows(el)[0]).getAttribute("aria-expanded")).toBe("false");
   });
 });
 

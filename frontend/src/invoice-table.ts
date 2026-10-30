@@ -122,12 +122,23 @@ export class CurenergiaInvoiceTable extends LitElement {
       cursor: pointer;
     }
     tr.row:hover,
-    tr.row:focus-visible {
+    tr.row:focus-within {
       background: var(--secondary-background-color, transparent);
     }
-    tr.row:focus-visible {
+    .toggle {
+      appearance: none;
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      margin: 0;
+      padding: 0;
+      text-align: left;
+    }
+    .toggle:focus-visible {
       outline: 2px solid var(--primary-color);
-      outline-offset: -2px;
+      outline-offset: 2px;
     }
     tr.row td {
       border-bottom: 1px solid var(--divider-color);
@@ -248,25 +259,23 @@ export class CurenergiaInvoiceTable extends LitElement {
     const open = this._expanded.has(key);
     const group = invoice.comparison?.group.length ?? 0;
     const color = `color: var(${deltaColorVar(invoice.status)})`;
+    // A click on the toggle button bubbles to the row, which toggles once;
+    // the native button gives focus and Enter/Space for free.
     const toggle = () => this._toggle(key);
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        toggle();
-      }
-    };
     const period = html`
       <td>
-        ${formatPeriod(invoice.period_start, invoice.period_end)}
-        ${invoice.estimated
-          ? html`<span class="pill">${t(this.hass, "pill_estimated")}</span>`
-          : nothing}
-        ${invoice.status === "no_leida"
-          ? html`<span class="pill error">${t(this.hass, "pill_unreadable")}</span>`
-          : nothing}
-        ${group > 1
-          ? html`<span class="note">${t(this.hass, "row_covers", { n: group })}</span>`
-          : nothing}
+        <button class="toggle" type="button" aria-expanded=${open ? "true" : "false"}>
+          ${formatPeriod(invoice.period_start, invoice.period_end)}
+          ${invoice.estimated
+            ? html`<span class="pill">${t(this.hass, "pill_estimated")}</span>`
+            : nothing}
+          ${invoice.status === "no_leida"
+            ? html`<span class="pill error">${t(this.hass, "pill_unreadable")}</span>`
+            : nothing}
+          ${group > 1
+            ? html`<span class="note">${t(this.hass, "row_covers", { n: group })}</span>`
+            : nothing}
+        </button>
       </td>
     `;
     const comparison = invoice.comparison;
@@ -286,13 +295,7 @@ export class CurenergiaInvoiceTable extends LitElement {
             <td style=${color}>${formatDelta(lang, comparison?.delta_eur ?? null, "eur")}</td>
           `;
     return html`
-      <tr
-        class="row ${invoice.estimated ? "estimated" : ""}"
-        tabindex="0"
-        aria-expanded=${open ? "true" : "false"}
-        @click=${toggle}
-        @keydown=${onKey}
-      >
+      <tr class="row ${invoice.estimated ? "estimated" : ""}" @click=${toggle}>
         ${period} ${cellsForSupply}
       </tr>
       ${open

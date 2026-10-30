@@ -27,33 +27,29 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
           </tbody>
         </table>
       </div>
-    `}_renderRow(t,e,i){const s=ft(this.hass),r=`${t.entry_id}|${t.contract}|${e.number}`,a=this._expanded.has(r),o=e.comparison?.group.length??0,n=`color: var(${function(t){switch(t){case"ok":return"--success-color";case"no_cuadra":return"--warning-color";case"no_leida":return"--error-color";default:return"--secondary-text-color"}}(e.status)})`,l=()=>this._toggle(r),c=L`
+    `}_renderRow(t,e,i){const s=ft(this.hass),r=`${t.entry_id}|${t.contract}|${e.number}`,a=this._expanded.has(r),o=e.comparison?.group.length??0,n=`color: var(${function(t){switch(t){case"ok":return"--success-color";case"no_cuadra":return"--warning-color";case"no_leida":return"--error-color";default:return"--secondary-text-color"}}(e.status)})`,l=L`
       <td>
-        ${function(t,e){const i=pt(t),s=pt(e);return t.slice(0,4)===e.slice(0,4)?`${i.slice(0,5)} – ${s}`:`${i} – ${s}`}(e.period_start,e.period_end)}
-        ${e.estimated?L`<span class="pill">${bt(this.hass,"pill_estimated")}</span>`:V}
-        ${"no_leida"===e.status?L`<span class="pill error">${bt(this.hass,"pill_unreadable")}</span>`:V}
-        ${o>1?L`<span class="note">${bt(this.hass,"row_covers",{n:o})}</span>`:V}
+        <button class="toggle" type="button" aria-expanded=${a?"true":"false"}>
+          ${function(t,e){const i=pt(t),s=pt(e);return t.slice(0,4)===e.slice(0,4)?`${i.slice(0,5)} – ${s}`:`${i} – ${s}`}(e.period_start,e.period_end)}
+          ${e.estimated?L`<span class="pill">${bt(this.hass,"pill_estimated")}</span>`:V}
+          ${"no_leida"===e.status?L`<span class="pill error">${bt(this.hass,"pill_unreadable")}</span>`:V}
+          ${o>1?L`<span class="note">${bt(this.hass,"row_covers",{n:o})}</span>`:V}
+        </button>
       </td>
-    `,d=e.comparison,h="gas"===e.supply?L`
+    `,c=e.comparison,d="gas"===e.supply?L`
             <td>${ut(s,e.kwh)}</td>
             <td>${function(t,e){return null===e?dt:`${ht(t,e,0,2)} m³`}(s,e.m3)}</td>
             <td>${_t(s,e.total)}</td>
             <td>${mt(s,e.price_kwh)}</td>
           `:L`
-            <td>${ut(s,d?.invoice_kwh??e.kwh)}</td>
-            <td>${ut(s,d?.edata_kwh??null)}</td>
-            <td style=${n}>${vt(s,d?.delta_kwh??null,"kwh")}</td>
+            <td>${ut(s,c?.invoice_kwh??e.kwh)}</td>
+            <td>${ut(s,c?.edata_kwh??null)}</td>
+            <td style=${n}>${vt(s,c?.delta_kwh??null,"kwh")}</td>
             <td>${_t(s,e.total)}</td>
-            <td style=${n}>${vt(s,d?.delta_eur??null,"eur")}</td>
+            <td style=${n}>${vt(s,c?.delta_eur??null,"eur")}</td>
           `;return L`
-      <tr
-        class="row ${e.estimated?"estimated":""}"
-        tabindex="0"
-        aria-expanded=${a?"true":"false"}
-        @click=${l}
-        @keydown=${t=>{"Enter"!==t.key&&" "!==t.key||(t.preventDefault(),l())}}
-      >
-        ${c} ${h}
+      <tr class="row ${e.estimated?"estimated":""}" @click=${()=>this._toggle(r)}>
+        ${l} ${d}
       </tr>
       ${a?L`<tr class="detail">
             <td colspan=${i}>${this._renderDetail(e)}</td>
@@ -149,12 +145,23 @@ const t=globalThis,e=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow
       cursor: pointer;
     }
     tr.row:hover,
-    tr.row:focus-visible {
+    tr.row:focus-within {
       background: var(--secondary-background-color, transparent);
     }
-    tr.row:focus-visible {
+    .toggle {
+      appearance: none;
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      margin: 0;
+      padding: 0;
+      text-align: left;
+    }
+    .toggle:focus-visible {
       outline: 2px solid var(--primary-color);
-      outline-offset: -2px;
+      outline-offset: 2px;
     }
     tr.row td {
       border-bottom: 1px solid var(--divider-color);
