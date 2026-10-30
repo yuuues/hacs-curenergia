@@ -10,6 +10,7 @@ import {
   formatPeriod,
   formatPricePerKwh,
   formatRate,
+  formatSignedPct,
 } from "../src/format";
 
 // Intl inserts no-break spaces; the implementation normalises them to plain ones.
@@ -84,5 +85,15 @@ describe("colours", () => {
     expect(deltaColorVar("sin_datos")).toBe("--secondary-text-color");
     expect(deltaColorVar("gas")).toBe("--secondary-text-color");
     expect(deltaColorVar("no_leida")).toBe("--error-color");
+  });
+});
+
+describe("signed percentages", () => {
+  it("adds the sign, and shows zero and null plainly", () => {
+    expect(plain(formatSignedPct("es", 1.2))).toBe("+1,2 %");
+    expect(plain(formatSignedPct("en", -0.84))).toBe("−0.8 %");
+    expect(plain(formatSignedPct("es", 0))).toBe("0,0 %");
+    expect(plain(formatSignedPct("es", 0.04))).toBe("0,0 %");
+    expect(formatSignedPct("es", null)).toBe("—");
   });
 });

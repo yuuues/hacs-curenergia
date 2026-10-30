@@ -52,6 +52,15 @@ export function formatPct(lang: string, value: number | null): string {
   return value === null ? DASH : `${number(lang, value, 1, 1)} %`;
 }
 
+/** Signed percentage: `+1,2 %`, `−0,8 %`, and `0,0 %` without sign. */
+export function formatSignedPct(lang: string, value: number | null): string {
+  if (value === null) return DASH;
+  const magnitude = number(lang, Math.abs(value), 1, 1);
+  const isZero = Number(Math.abs(value).toFixed(1)) === 0;
+  const sign = isZero ? "" : value < 0 ? MINUS : "+";
+  return `${sign}${magnitude} %`;
+}
+
 /** Signed difference: `+5 kWh`, `−1,82 €`, and `0` without sign. */
 export function formatDelta(lang: string, value: number | null, kind: "kwh" | "eur"): string {
   if (value === null) return DASH;
