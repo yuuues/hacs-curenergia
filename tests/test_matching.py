@@ -1,4 +1,8 @@
-"""Tests de la casación de facturas con los totales de e-data."""
+"""Tests de la casación de facturas con los totales de e-data.
+
+Los periodos siguen el formato real de CurEnergía: una factura ``D1 a D2`` va
+seguida de otra que empieza en ``D2`` (comparten la fecha de la lectura).
+"""
 
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -71,16 +75,17 @@ async def run(rows, mapping, thresholds=THRESHOLDS):
 # ---------------------------------------------------------------- funciones sueltas
 
 
-def test_invoice_window_madrid():
-    s, e = invoice_window(date(2026, 9, 5), date(2026, 10, 4), MADRID)
+def test_invoice_window_starts_the_day_after_the_first_reading():
+    """La lectura de D1 cierra la factura anterior: ``[D1+1 00:00, D2+1 00:00)``."""
+    s, e = invoice_window(date(2026, 8, 29), date(2026, 9, 28), MADRID)
     assert (s.isoformat(), e.isoformat()) == (
-        "2026-09-05T00:00:00+02:00",
-        "2026-10-05T00:00:00+02:00",
+        "2026-08-30T00:00:00+02:00",
+        "2026-09-29T00:00:00+02:00",
     )
 
 
 def test_invoice_window_spans_dst_change():
-    s, e = invoice_window(date(2026, 10, 1), date(2026, 10, 31), MADRID)
+    s, e = invoice_window(date(2026, 9, 30), date(2026, 10, 31), MADRID)
     assert (s.isoformat(), e.isoformat()) == (
         "2026-10-01T00:00:00+02:00",
         "2026-11-01T00:00:00+01:00",
@@ -137,7 +142,7 @@ def test_comparable_eur_on_fixture_is_positive():
 
 
 async def test_real_invoice_within_threshold_is_ok():
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
     mapping = {window_of(r): totals(101)}  # Δ = -1 exacto
     [row] = await run([r], mapping)
     assert row.status is Status.OK
@@ -147,7 +152,7 @@ async def test_real_invoice_within_threshold_is_ok():
 
 
 async def test_real_invoice_over_kwh_threshold_is_mismatch():
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
     mapping = {window_of(r): totals("101.01")}  # Δ = -1.01
     [row] = await run([r], mapping)
     assert row.status is Status.MISMATCH
@@ -157,7 +162,7 @@ async def test_real_invoice_over_kwh_threshold_is_mismatch():
 async def test_single_period_over_threshold_is_mismatch():
     r = stored(
         "R",
-        date(2026, 9, 5),
+        date(2026, 9, 4),
         date(2026, 10, 4),
         kwh_p1=D(40),
         kwh_p2=D(30),
@@ -173,7 +178,7 @@ async def test_single_period_over_threshold_is_mismatch():
 async def test_period_compared_only_when_both_have_it():
     r = stored(
         "R",
-        date(2026, 9, 5),
+        date(2026, 9, 4),
         date(2026, 10, 4),
         kwh_p1=D(100),
         kwh_p2=None,
@@ -188,7 +193,7 @@ async def test_period_compared_only_when_both_have_it():
 
 
 async def test_period_equal_to_threshold_is_ok():
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4), kwh_p1=D(100))
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4), kwh_p1=D(100))
     mapping = {window_of(r): totals(100, p1=99)}  # Δ P1 = +1 exacto
     [row] = await run([r], mapping)
     assert row.status is Status.OK
@@ -198,7 +203,7 @@ def eur_invoice(amount):
     """Factura cuyo importe comparable es exactamente ``amount``."""
     return stored(
         "R",
-        date(2026, 9, 5),
+        date(2026, 9, 4),
         date(2026, 10, 4),
         concepts=(Concept(ConceptKey.ENERGY, "e", D(amount)),),
         vat_rate=D(0),
@@ -253,7 +258,7 @@ async def test_missing_edata_costs_still_flags_kwh():
 
 async def test_incomplete_window_over_threshold_is_no_data():
     """R24: con horas sin dato en e-data, un descuadre no se puede afirmar."""
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
     [row] = await run([r], {window_of(r): totals(150, complete=False)})
     assert row.status is Status.NO_DATA
     assert row.comparison is not None
@@ -267,16 +272,16 @@ async def test_incomplete_window_eur_over_threshold_is_no_data():
 
 
 async def test_incomplete_window_within_threshold_is_ok():
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
     [row] = await run([r], {window_of(r): totals(101, complete=False)})
     assert row.status is Status.OK
 
 
 async def test_incomplete_combined_window_over_threshold_is_no_data():
-    r0 = stored("R0", date(2026, 7, 5), date(2026, 8, 4))
-    e = stored("E", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
-    combined = invoice_window(date(2026, 8, 5), date(2026, 10, 4), MADRID)
+    r0 = stored("R0", date(2026, 7, 4), date(2026, 8, 4))
+    e = stored("E", date(2026, 8, 4), date(2026, 9, 4), estimated=True)
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
+    combined = invoice_window(date(2026, 8, 4), date(2026, 10, 4), MADRID)
     rows = await run([r0, e, r], {combined: totals(210, complete=False)})
     assert rows[2].status is Status.NO_DATA
     assert rows[2].comparison.group == ("E", "R")
@@ -284,17 +289,65 @@ async def test_incomplete_combined_window_over_threshold_is_no_data():
 
 
 async def test_provider_none_is_no_data():
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
     [row] = await run([r], {})
     assert row.status is Status.NO_DATA
     assert row.comparison is None
+
+
+# ------------------------------------------------------------------- contigüidad
+
+
+async def test_reals_sharing_the_boundary_date_are_contiguous():
+    """CurEnergía: la siguiente factura empieza el día en que acabó la anterior."""
+    r0 = stored("R0", date(2026, 7, 29), date(2026, 8, 29))
+    r = stored("R", date(2026, 8, 29), date(2026, 9, 28))
+    mapping = {window_of(r0): totals(100), window_of(r): totals(100)}
+    rows = await run([r0, r], mapping)
+    assert [x.status for x in rows] == [Status.OK, Status.OK]
+    assert rows[1].comparison is not None
+    assert rows[1].comparison.group == ("R",)
+    assert rows[1].comparison.window_start.isoformat() == "2026-08-30T00:00:00+02:00"
+    assert rows[1].comparison.window_end.isoformat() == "2026-09-29T00:00:00+02:00"
+    # Las ventanas de dos facturas seguidas no se solapan ni dejan hueco.
+    assert rows[0].comparison.window_end == rows[1].comparison.window_start
+
+
+async def test_real_starting_after_previous_end_is_a_gap():
+    """R25: ``next.start > prev.end`` es un hueco (falta una factura)."""
+    r0 = stored("R0", date(2026, 7, 29), date(2026, 8, 29))
+    r = stored("R", date(2026, 9, 5), date(2026, 9, 28))
+    rows = await run([r0, r], {window_of(r0): totals(100), window_of(r): totals(100)})
+    assert rows[0].status is Status.OK
+    assert rows[1].status is Status.NO_DATA
+    assert rows[1].comparison is None
+
+
+async def test_old_next_day_layout_is_a_one_day_gap():
+    """Empezar el día después del final anterior deja un día sin facturar."""
+    r0 = stored("R0", date(2026, 7, 29), date(2026, 8, 28))
+    r = stored("R", date(2026, 8, 29), date(2026, 9, 28))
+    rows = await run([r0, r], {window_of(r0): totals(100), window_of(r): totals(100)})
+    assert rows[0].status is Status.OK
+    assert rows[1].status is Status.NO_DATA
+    assert rows[1].comparison is None
+
+
+async def test_old_next_day_layout_does_not_link_estimated():
+    r0 = stored("R0", date(2026, 6, 29), date(2026, 7, 29))
+    e = stored("E", date(2026, 7, 30), date(2026, 8, 28), estimated=True)
+    r = stored("R", date(2026, 8, 29), date(2026, 9, 28))
+    combined = invoice_window(date(2026, 7, 30), date(2026, 9, 28), MADRID)
+    rows = await run([r0, e, r], {combined: totals(200)})
+    assert rows[1].in_group_of is None
+    assert rows[2].status is Status.NO_DATA
 
 
 # ---------------------------------------------------------------- estimadas
 
 
 async def test_estimated_never_mismatch():
-    e = stored("E", date(2026, 9, 5), date(2026, 10, 4), estimated=True)
+    e = stored("E", date(2026, 9, 4), date(2026, 10, 4), estimated=True)
     [row] = await run([e], {window_of(e): totals(150)})  # Δ = -50 kWh
     assert row.status is Status.ESTIMATED
     assert row.in_group_of is None
@@ -304,25 +357,25 @@ async def test_estimated_never_mismatch():
 
 
 async def test_estimated_without_edata_has_no_comparison():
-    e = stored("E", date(2026, 9, 5), date(2026, 10, 4), estimated=True)
+    e = stored("E", date(2026, 9, 4), date(2026, 10, 4), estimated=True)
     [row] = await run([e], {})
     assert row.status is Status.ESTIMATED
     assert row.comparison is None
 
 
 async def test_trailing_estimated_waits():
-    r = stored("R", date(2026, 8, 5), date(2026, 9, 4))
-    e = stored("E", date(2026, 9, 5), date(2026, 10, 4), estimated=True)
+    r = stored("R", date(2026, 8, 4), date(2026, 9, 4))
+    e = stored("E", date(2026, 9, 4), date(2026, 10, 4), estimated=True)
     rows = await run([r, e], {window_of(r): totals(100)})
     assert [x.status for x in rows] == [Status.OK, Status.ESTIMATED]
     assert rows[1].in_group_of is None
 
 
 async def test_real_after_estimates_uses_combined_window():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
     e1 = stored(
         "E1",
-        date(2026, 7, 5),
+        date(2026, 7, 4),
         date(2026, 8, 4),
         estimated=True,
         kwh=D(100),
@@ -332,7 +385,7 @@ async def test_real_after_estimates_uses_combined_window():
     )
     e2 = stored(
         "E2",
-        date(2026, 8, 5),
+        date(2026, 8, 4),
         date(2026, 9, 4),
         estimated=True,
         kwh=D(100),
@@ -342,14 +395,14 @@ async def test_real_after_estimates_uses_combined_window():
     )
     r = stored(
         "R",
-        date(2026, 9, 5),
+        date(2026, 9, 4),
         date(2026, 10, 4),
         kwh=D(150),
         kwh_p1=D(30),
         kwh_p2=D(40),
         kwh_p3=D(80),
     )
-    combined = invoice_window(date(2026, 7, 5), date(2026, 10, 4), MADRID)
+    combined = invoice_window(date(2026, 7, 4), date(2026, 10, 4), MADRID)
     mapping = {
         window_of(r0): totals(100),
         combined: totals(350, p1=50, p2=80, p3=220),
@@ -369,6 +422,8 @@ async def test_real_after_estimates_uses_combined_window():
     c = r_row.comparison
     assert c.group == ("E1", "E2", "R")
     assert (c.window_start, c.window_end) == combined
+    # Del día siguiente al inicio de la primera estimada al siguiente al fin real.
+    assert c.window_start.isoformat() == "2026-07-05T00:00:00+02:00"
     assert c.window_end.isoformat() == "2026-10-05T00:00:00+02:00"
     assert c.invoice_kwh == D(350)
     assert c.invoice_periods == (D(50), D(80), D(220))
@@ -377,11 +432,11 @@ async def test_real_after_estimates_uses_combined_window():
 
 
 async def test_combined_window_mismatch():
-    e = stored("E", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
-    combined = invoice_window(date(2026, 8, 5), date(2026, 10, 4), MADRID)
+    e = stored("E", date(2026, 8, 4), date(2026, 9, 4), estimated=True)
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
+    combined = invoice_window(date(2026, 8, 4), date(2026, 10, 4), MADRID)
     rows = await run(
-        [stored("R0", date(2026, 7, 5), date(2026, 8, 4)), e, r],
+        [stored("R0", date(2026, 7, 4), date(2026, 8, 4)), e, r],
         {combined: totals(210)},  # factura suma 200 → Δ -10
     )
     assert rows[2].status is Status.MISMATCH
@@ -391,10 +446,10 @@ async def test_combined_window_mismatch():
 
 
 async def test_estimated_own_comparison_present_inside_closed_group():
-    r0 = stored("R0", date(2026, 7, 5), date(2026, 8, 4))
-    e = stored("E", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
-    combined = invoice_window(date(2026, 8, 5), date(2026, 10, 4), MADRID)
+    r0 = stored("R0", date(2026, 7, 4), date(2026, 8, 4))
+    e = stored("E", date(2026, 8, 4), date(2026, 9, 4), estimated=True)
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
+    combined = invoice_window(date(2026, 8, 4), date(2026, 10, 4), MADRID)
     rows = await run([r0, e, r], {window_of(e): totals(90), combined: totals(200)})
     assert rows[1].status is Status.ESTIMATED
     assert rows[1].comparison.delta_kwh == D(10)
@@ -404,14 +459,14 @@ async def test_estimated_own_comparison_present_inside_closed_group():
 
 async def test_two_groups_in_a_row():
     rows_in = [
-        stored("R0", date(2026, 1, 1), date(2026, 1, 31)),
-        stored("E1", date(2026, 2, 1), date(2026, 2, 28), estimated=True),
-        stored("R1", date(2026, 3, 1), date(2026, 3, 31)),
-        stored("E2", date(2026, 4, 1), date(2026, 4, 30), estimated=True),
-        stored("R2", date(2026, 5, 1), date(2026, 5, 31)),
+        stored("R0", date(2025, 12, 31), date(2026, 1, 31)),
+        stored("E1", date(2026, 1, 31), date(2026, 2, 28), estimated=True),
+        stored("R1", date(2026, 2, 28), date(2026, 3, 31)),
+        stored("E2", date(2026, 3, 31), date(2026, 4, 30), estimated=True),
+        stored("R2", date(2026, 4, 30), date(2026, 5, 31)),
     ]
-    g1 = invoice_window(date(2026, 2, 1), date(2026, 3, 31), MADRID)
-    g2 = invoice_window(date(2026, 4, 1), date(2026, 5, 31), MADRID)
+    g1 = invoice_window(date(2026, 1, 31), date(2026, 3, 31), MADRID)
+    g2 = invoice_window(date(2026, 3, 31), date(2026, 5, 31), MADRID)
     rows = await run(rows_in, {g1: totals(200), g2: totals(500)})
     assert [x.status for x in rows] == [
         Status.NO_DATA,  # R0: sin e-data
@@ -430,10 +485,10 @@ async def test_two_groups_in_a_row():
 
 
 async def test_group_with_gap_is_no_data():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    r = stored("R", date(2026, 8, 7), date(2026, 9, 4))  # faltan 2 días
-    combined = invoice_window(date(2026, 7, 5), date(2026, 9, 4), MADRID)
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    r = stored("R", date(2026, 8, 6), date(2026, 9, 4))  # faltan 2 días
+    combined = invoice_window(date(2026, 7, 4), date(2026, 9, 4), MADRID)
     rows = await run([r0, e, r], {combined: totals(200)})
     assert rows[2].status is Status.NO_DATA
     assert rows[2].comparison is None
@@ -443,10 +498,10 @@ async def test_group_with_gap_is_no_data():
 
 
 async def test_first_estimated_not_contiguous_with_previous_is_no_data():
-    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
-    e = stored("E", date(2026, 3, 1), date(2026, 3, 31), estimated=True)  # falta feb
-    r = stored("R", date(2026, 4, 1), date(2026, 4, 30))
-    combined = invoice_window(date(2026, 3, 1), date(2026, 4, 30), MADRID)
+    r0 = stored("R0", date(2025, 12, 31), date(2026, 1, 31))
+    e = stored("E", date(2026, 2, 28), date(2026, 3, 31), estimated=True)  # falta feb
+    r = stored("R", date(2026, 3, 31), date(2026, 4, 30))
+    combined = invoice_window(date(2026, 2, 28), date(2026, 4, 30), MADRID)
     rows = await run([r0, e, r], {combined: totals(200)})
     assert rows[2].status is Status.NO_DATA
     assert rows[2].comparison is None
@@ -456,8 +511,8 @@ async def test_first_estimated_not_contiguous_with_previous_is_no_data():
 
 async def test_real_after_a_gap_is_no_data():
     """R25: falta la factura anterior; pudo regularizar lo que trae esta."""
-    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
-    r = stored("R", date(2026, 3, 1), date(2026, 3, 31))  # falta feb
+    r0 = stored("R0", date(2025, 12, 31), date(2026, 1, 31))
+    r = stored("R", date(2026, 2, 28), date(2026, 3, 31))  # falta feb
     rows = await run([r0, r], {window_of(r0): totals(100), window_of(r): totals(100)})
     # La más antigua guardada se sigue comparando.
     assert rows[0].status is Status.OK
@@ -467,42 +522,42 @@ async def test_real_after_a_gap_is_no_data():
 
 
 async def test_real_overlapping_previous_is_no_data():
-    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
-    r = stored("R", date(2026, 1, 31), date(2026, 2, 28))  # solapa un día
+    r0 = stored("R0", date(2025, 12, 31), date(2026, 1, 31))
+    r = stored("R", date(2026, 1, 30), date(2026, 2, 28))  # solapa un día
     rows = await run([r0, r], {window_of(r): totals(100)})
     assert rows[1].status is Status.NO_DATA
 
 
 async def test_real_after_a_gap_following_an_unreadable_is_no_data():
     """La ilegible también cuenta como factura anterior guardada."""
-    u = unreadable("U", date(2026, 1, 1), date(2026, 1, 31), estimated=False)
-    r = stored("R", date(2026, 3, 1), date(2026, 3, 31))
+    u = unreadable("U", date(2025, 12, 31), date(2026, 1, 31), estimated=False)
+    r = stored("R", date(2026, 2, 28), date(2026, 3, 31))
     rows = await run([u, r], {window_of(r): totals(100)})
     assert rows[0].status is Status.UNREADABLE
     assert rows[1].status is Status.NO_DATA
 
 
 async def test_real_contiguous_with_an_unreadable_is_compared():
-    u = unreadable("U", date(2026, 1, 1), date(2026, 1, 31), estimated=False)
-    r = stored("R", date(2026, 2, 1), date(2026, 2, 28))
+    u = unreadable("U", date(2025, 12, 31), date(2026, 1, 31), estimated=False)
+    r = stored("R", date(2026, 1, 31), date(2026, 2, 28))
     rows = await run([u, r], {window_of(r): totals(100)})
     assert rows[1].status is Status.OK
 
 
 async def test_unreadable_real_after_a_gap_stays_unreadable():
-    r0 = stored("R0", date(2026, 1, 1), date(2026, 1, 31))
-    u = unreadable("U", date(2026, 3, 1), date(2026, 3, 31), estimated=False)
+    r0 = stored("R0", date(2025, 12, 31), date(2026, 1, 31))
+    u = unreadable("U", date(2026, 2, 28), date(2026, 3, 31), estimated=False)
     rows = await run([r0, u], {window_of(u): totals(100)})
     assert rows[1].status is Status.UNREADABLE
     assert rows[1].comparison is not None
 
 
 async def test_gap_between_two_estimated_is_no_data():
-    r0 = stored("R0", date(2026, 5, 5), date(2026, 6, 4))
-    e1 = stored("E1", date(2026, 6, 5), date(2026, 7, 4), estimated=True)
-    e2 = stored("E2", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
-    everything = invoice_window(date(2026, 6, 5), date(2026, 10, 4), MADRID)
+    r0 = stored("R0", date(2026, 5, 4), date(2026, 6, 4))
+    e1 = stored("E1", date(2026, 6, 4), date(2026, 7, 4), estimated=True)
+    e2 = stored("E2", date(2026, 8, 4), date(2026, 9, 4), estimated=True)
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
+    everything = invoice_window(date(2026, 6, 4), date(2026, 10, 4), MADRID)
     rows = await run([r0, e1, e2, r], {everything: totals(300)})
     assert rows[3].status is Status.NO_DATA
     assert rows[1].in_group_of is None
@@ -510,21 +565,21 @@ async def test_gap_between_two_estimated_is_no_data():
 
 
 async def test_overlap_is_not_contiguous():
-    r0 = stored("R0", date(2026, 5, 5), date(2026, 6, 4))
-    e = stored("E", date(2026, 6, 5), date(2026, 7, 4), estimated=True)
-    r = stored("R", date(2026, 7, 4), date(2026, 8, 4))  # solapa un día
+    r0 = stored("R0", date(2026, 5, 4), date(2026, 6, 4))
+    e = stored("E", date(2026, 6, 4), date(2026, 7, 4), estimated=True)
+    r = stored("R", date(2026, 7, 3), date(2026, 8, 4))  # solapa un día
     rows = await run(
         [r0, e, r],
-        {invoice_window(date(2026, 6, 5), date(2026, 8, 4), MADRID): totals(200)},
+        {invoice_window(date(2026, 6, 4), date(2026, 8, 4), MADRID): totals(200)},
     )
     assert rows[2].status is Status.NO_DATA
     assert rows[1].in_group_of is None
 
 
 async def test_group_starting_at_oldest_estimated_is_no_data():
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    r = stored("R", date(2026, 8, 5), date(2026, 9, 4))
-    combined = invoice_window(date(2026, 7, 5), date(2026, 9, 4), MADRID)
+    e = stored("E", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    r = stored("R", date(2026, 8, 4), date(2026, 9, 4))
+    combined = invoice_window(date(2026, 7, 4), date(2026, 9, 4), MADRID)
     rows = await run([e, r], {combined: totals(200)})
     assert rows[0].status is Status.ESTIMATED
     assert rows[1].status is Status.NO_DATA
@@ -551,11 +606,11 @@ def unreadable(number, start, end, *, estimated):
 
 
 async def test_unreadable_estimated_in_group_is_no_data():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    u = unreadable("U", date(2026, 8, 5), date(2026, 9, 4), estimated=True)
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
-    combined = invoice_window(date(2026, 7, 5), date(2026, 10, 4), MADRID)
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 4), date(2026, 9, 4), estimated=True)
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
+    combined = invoice_window(date(2026, 7, 4), date(2026, 10, 4), MADRID)
     rows = await run([r0, e, u, r], {combined: totals(300)})
     assert rows[2].status is Status.UNREADABLE
     assert rows[3].status is Status.NO_DATA
@@ -565,10 +620,10 @@ async def test_unreadable_estimated_in_group_is_no_data():
 
 
 async def test_unreadable_estimated_alone_makes_closing_real_no_data():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
-    u = unreadable("U", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    r = stored("R", date(2026, 8, 5), date(2026, 9, 4))
-    combined = invoice_window(date(2026, 7, 5), date(2026, 9, 4), MADRID)
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
+    u = unreadable("U", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    r = stored("R", date(2026, 8, 4), date(2026, 9, 4))
+    combined = invoice_window(date(2026, 7, 4), date(2026, 9, 4), MADRID)
     rows = await run([r0, u, r], {combined: totals(200)})
     assert rows[1].status is Status.UNREADABLE
     assert rows[1].in_group_of == "R"
@@ -576,10 +631,10 @@ async def test_unreadable_estimated_alone_makes_closing_real_no_data():
 
 
 async def test_unreadable_real_closes_open_group():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    u = unreadable("U", date(2026, 8, 5), date(2026, 9, 4), estimated=False)
-    r = stored("R", date(2026, 9, 5), date(2026, 10, 4))
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 4), date(2026, 9, 4), estimated=False)
+    r = stored("R", date(2026, 9, 4), date(2026, 10, 4))
     rows = await run([r0, e, u, r], {window_of(r): totals(100)})
     assert rows[1].status is Status.ESTIMATED
     assert rows[1].in_group_of == "U"
@@ -591,8 +646,8 @@ async def test_unreadable_real_closes_open_group():
 
 
 async def test_unreadable_real_closing_group_keeps_own_comparison():
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    u = unreadable("U", date(2026, 8, 5), date(2026, 9, 4), estimated=False)
+    e = stored("E", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 4), date(2026, 9, 4), estimated=False)
     rows = await run([e, u], {window_of(u): totals(120)})
     assert rows[1].status is Status.UNREADABLE
     assert rows[1].comparison.group == ("U",)
@@ -601,9 +656,9 @@ async def test_unreadable_real_closing_group_keeps_own_comparison():
 
 
 async def test_unreadable_real_across_a_gap_does_not_link_estimated():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
-    e = stored("E", date(2026, 7, 5), date(2026, 8, 4), estimated=True)
-    u = unreadable("U", date(2026, 8, 10), date(2026, 9, 4), estimated=False)
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
+    e = stored("E", date(2026, 7, 4), date(2026, 8, 4), estimated=True)
+    u = unreadable("U", date(2026, 8, 9), date(2026, 9, 4), estimated=False)
     rows = await run([r0, e, u], {})
     assert rows[2].status is Status.UNREADABLE
     assert rows[1].in_group_of is None
@@ -613,7 +668,7 @@ async def test_unreadable_has_own_comparison_when_provider_has_it():
     u = StoredInvoice(
         invoice=make_invoice(
             number="U",
-            period_start=date(2026, 8, 5),
+            period_start=date(2026, 8, 4),
             period_end=date(2026, 9, 4),
             kwh=D(100),
             kwh_p1=None,
@@ -639,18 +694,18 @@ async def test_unreadable_without_edata_has_no_comparison():
 
 
 async def test_unreadable_real_between_reals_does_not_taint_next_real():
-    r0 = stored("R0", date(2026, 6, 5), date(2026, 7, 4))
+    r0 = stored("R0", date(2026, 6, 4), date(2026, 7, 4))
     u = StoredInvoice(
         invoice=make_invoice(
             number="U",
-            period_start=date(2026, 7, 5),
+            period_start=date(2026, 7, 4),
             period_end=date(2026, 8, 4),
             estimated=False,
         ),
         problems=["x"],
         email_total=None,
     )
-    r = stored("R", date(2026, 8, 5), date(2026, 9, 4))
+    r = stored("R", date(2026, 8, 4), date(2026, 9, 4))
     rows = await run([r0, u, r], {window_of(r): totals(100)})
     assert rows[1].status is Status.UNREADABLE
     assert rows[2].status is Status.OK

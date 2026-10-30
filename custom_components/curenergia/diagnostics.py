@@ -76,8 +76,10 @@ async def _boundary_deltas(
     """Δ kWh (factura − e-data) con la ventana de la factura y con las fronteras
     desplazadas un día (§9.3).
 
-    Si la factura cierra un grupo de estimadas, la ventana y los kWh son los del
-    grupo, como en la comparación. ``None`` si no hay e-data o no cubre la ventana.
+    ``base`` es la ventana de la comparación (``[D1 + 1 día, D2 + 1 día)``); las
+    otras mueven un día su inicio o su final. Si la factura cierra un grupo de
+    estimadas, la ventana y los kWh son los del grupo, como en la comparación.
+    ``None`` si no hay e-data, no cubre la ventana o la ventana queda vacía.
     """
     invoice = row.stored.invoice
     group = [
@@ -100,7 +102,9 @@ async def _boundary_deltas(
     deltas: dict[str, float | None] = {}
     for key, (window_start, window_end) in windows.items():
         totals = None
-        if provider is not None and window_start <= window_end:
+        # ``invoice_window`` va de ``inicio + 1`` a ``fin + 1``: vacía si no
+        # hay al menos un día entre las dos fechas.
+        if provider is not None and window_start < window_end:
             totals = await provider(*invoice_window(window_start, window_end, tz))
         deltas[key] = None if totals is None else money(kwh - totals.kwh)
     return deltas

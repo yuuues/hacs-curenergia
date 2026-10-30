@@ -54,7 +54,7 @@ async def test_diagnostics_redacted(
         number="EST-NUM-0001",
         estimated=True,
         period_start=date(2026, 7, 29),
-        period_end=date(2026, 8, 28),
+        period_end=date(2026, 8, 29),
     )
     real = make_invoice()
     gas = fixture_invoice("gas_2026-09")
@@ -68,7 +68,7 @@ async def test_diagnostics_redacted(
 
     # Para ``start+1d`` el proveedor no cubre la ventana.
     def provider(start, end):
-        if start.date() == date(2026, 7, 30):
+        if start.date() == date(2026, 7, 31):
             return None
         return _totals(start, end)
 
@@ -128,7 +128,7 @@ async def test_diagnostics_redacted(
     assert real_item["period_end"] == "2026-09-28"
     assert real_item["problems"] == []
     # La real cierra el grupo con la estimada: se comparan los kWh del grupo
-    # (dos facturas) con la ventana combinada 07-29 .. 09-29 (62 días).
+    # (dos facturas) con la ventana combinada 07-30 .. 09-29 (61 días).
     group_kwh = real.kwh + estimated.kwh
 
     def delta(days: int, start_day: int) -> float:
@@ -136,11 +136,11 @@ async def test_diagnostics_redacted(
 
     assert set(real_item["boundary_deltas"]) == BOUNDARY_KEYS
     assert real_item["boundary_deltas"] == {
-        "base": pytest.approx(delta(62, 29)),
-        "start-1d": pytest.approx(delta(63, 28)),
+        "base": pytest.approx(delta(61, 30)),
+        "start-1d": pytest.approx(delta(62, 29)),
         "start+1d": None,
-        "end-1d": pytest.approx(delta(61, 29)),
-        "end+1d": pytest.approx(delta(63, 29)),
+        "end-1d": pytest.approx(delta(60, 30)),
+        "end+1d": pytest.approx(delta(62, 30)),
     }
 
 
@@ -160,13 +160,13 @@ async def test_diagnostics_boundary_deltas_single_invoice(
     def delta(days: int, start_day: int) -> float:
         return float(real.kwh - (Decimal(days) + Decimal(start_day) / 100))
 
-    # Periodo 08-29 .. 09-28: 31 días.
+    # Periodo 08-29 .. 09-28: ventana 08-30 .. 09-29, 30 días.
     assert deltas == {
-        "base": pytest.approx(delta(31, 29)),
-        "start-1d": pytest.approx(delta(32, 28)),
-        "start+1d": pytest.approx(delta(30, 30)),
-        "end-1d": pytest.approx(delta(30, 29)),
-        "end+1d": pytest.approx(delta(32, 29)),
+        "base": pytest.approx(delta(30, 30)),
+        "start-1d": pytest.approx(delta(31, 29)),
+        "start+1d": pytest.approx(delta(29, 31)),
+        "end-1d": pytest.approx(delta(29, 30)),
+        "end+1d": pytest.approx(delta(31, 30)),
     }
     assert len(set(deltas.values())) == 5
 
@@ -187,7 +187,8 @@ async def test_diagnostics_without_edata(
 async def test_diagnostics_one_day_period(
     hass: HomeAssistant, hass_client, mailbox: FakeMailbox, make_invoice
 ):
-    one_day = make_invoice(period_start=date(2026, 9, 28), period_end=date(2026, 9, 28))
+    # Periodo 09-27 .. 09-28: la ventana es solo el día 28.
+    one_day = make_invoice(period_start=date(2026, 9, 27), period_end=date(2026, 9, 28))
     mailbox.add(1, (b"real", one_day))
     entry = make_entry()
 

@@ -94,7 +94,7 @@ async def test_ws_invoices_shape(
         number="OLD-1",
         issue_date=date(2026, 9, 5),
         period_start=date(2026, 7, 29),
-        period_end=date(2026, 8, 28),
+        period_end=date(2026, 8, 29),
     )
     latest = make_invoice()
     gas = fixture_invoice("gas_2026-09")
@@ -157,7 +157,7 @@ async def test_ws_invoices_shape(
         "in_group_of": None,
         "comparison": {
             "group": [latest.number],
-            "window_start": "2026-08-29T00:00:00+02:00",
+            "window_start": "2026-08-30T00:00:00+02:00",
             "window_end": "2026-09-29T00:00:00+02:00",
             "invoice_kwh": 380.06,
             "invoice_periods": {"p1": 107.11, "p2": 104.16, "p3": 168.79},
@@ -211,13 +211,13 @@ async def test_ws_invoices_group_and_zero_kwh(
         number="EST-1",
         estimated=True,
         period_start=date(2026, 6, 29),
-        period_end=date(2026, 7, 28),
+        period_end=date(2026, 7, 29),
     )
     second = make_invoice(
         number="EST-2",
         estimated=True,
         period_start=date(2026, 7, 29),
-        period_end=date(2026, 8, 28),
+        period_end=date(2026, 8, 29),
     )
     real = make_invoice(number="REAL-1")
     zero = make_invoice(
@@ -226,13 +226,13 @@ async def test_ws_invoices_group_and_zero_kwh(
         kwh_p1=None,
         kwh_p2=None,
         kwh_p3=None,
-        period_start=date(2026, 9, 29),
+        period_start=date(2026, 9, 28),
         period_end=date(2026, 10, 28),
     )
     older = make_invoice(
         number="OLDEST",
         period_start=date(2026, 5, 29),
-        period_end=date(2026, 6, 28),
+        period_end=date(2026, 6, 29),
     )
     for uid, invoice in enumerate((older, first, second, real, zero), start=1):
         mailbox.add(uid, (b"pdf-%d" % uid, invoice))
@@ -382,7 +382,7 @@ async def test_ws_summary(
         number="C-1",
         estimated=True,
         issue_date=date(2026, 10, 20),
-        period_start=date(2026, 9, 29),
+        period_start=date(2026, 9, 28),
         period_end=date(2026, 10, 28),
     )
     gas = fixture_invoice("gas_2026-09")  # estimada, emitida 2026-09-11
@@ -390,10 +390,11 @@ async def test_ws_summary(
         mailbox.add(uid, (b"pdf-%d" % uid, invoice))
     mailbox.add(6, (b"bad", InvoiceParseError("number")))
     mailbox.add(7, (b"credit-note", UnsupportedInvoiceError("abono")))
+    # Por el día en que empieza la ventana (el siguiente al inicio del periodo).
     edata_kwh = {
-        date(2026, 8, 29): Decimal("360.06"),  # a: +20
-        date(2026, 5, 1): Decimal("380.06"),  # b: 0
-        date(2025, 7, 1): Decimal("1"),  # old: fuera del plazo
+        date(2026, 8, 30): Decimal("360.06"),  # a: +20
+        date(2026, 5, 2): Decimal("380.06"),  # b: 0
+        date(2025, 7, 2): Decimal("1"),  # old: fuera del plazo
         date(2026, 9, 29): Decimal("1"),  # estimada: no cuenta
     }
 

@@ -120,8 +120,8 @@ async def test_sensor_values_latest_invoice(
     older = make_invoice(
         estimated=False,
         number="OLD-1",
-        period_start=date(2026, 8, 29),
-        period_end=date(2026, 9, 28),
+        period_start=date(2026, 7, 29),
+        period_end=date(2026, 8, 29),
         total=Decimal("1.00"),
         kwh=Decimal("1.0"),
     )

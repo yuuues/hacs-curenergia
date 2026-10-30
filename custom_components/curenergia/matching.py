@@ -90,9 +90,14 @@ class InvoiceRow:
 
 
 def invoice_window(start: date, end: date, tz: tzinfo) -> tuple[datetime, datetime]:
-    """Ventana ``[start 00:00, end + 1 día 00:00)`` en la zona horaria ``tz``."""
+    """Ventana ``[start + 1 día 00:00, end + 1 día 00:00)`` en la zona ``tz``.
+
+    Fijada con datos reales (§9.3): una factura ``D1 a D2`` va de lectura a
+    lectura; la del día ``D1`` cierra la factura anterior, así que el consumo
+    de esta empieza el día siguiente.
+    """
     return (
-        datetime.combine(start, time.min, tzinfo=tz),
+        datetime.combine(start + _DAY, time.min, tzinfo=tz),
         datetime.combine(end + _DAY, time.min, tzinfo=tz),
     )
 
@@ -132,7 +137,11 @@ def _diff(invoice: Decimal | None, edata: Decimal | None) -> Decimal | None:
 async def _compare(
     group: list[StoredInvoice], provider: TotalsProvider, tz: tzinfo
 ) -> Comparison | None:
-    """Compara un grupo contiguo de facturas con e-data en su ventana combinada."""
+    """Compara un grupo contiguo de facturas con e-data en su ventana combinada.
+
+    La ventana va del día siguiente al inicio de la primera factura al día
+    siguiente al final de la última.
+    """
     invoices = [s.invoice for s in group]
     start, end = invoice_window(invoices[0].period_start, invoices[-1].period_end, tz)
     edata = await provider(start, end)
@@ -182,9 +191,13 @@ def _exceeds(comparison: Comparison, thresholds: Thresholds) -> bool:
 
 
 def _contiguous(group: list[StoredInvoice]) -> bool:
-    """Si cada factura empieza el día siguiente al final de la anterior."""
+    """Si cada factura empieza el día en que acaba la anterior.
+
+    CurEnergía repite la fecha de la lectura: a ``D1 a D2`` le sigue
+    ``D2 a D3``. Empezar después es un hueco; empezar antes, un solape.
+    """
     return all(
-        cur.invoice.period_start == prev.invoice.period_end + _DAY
+        cur.invoice.period_start == prev.invoice.period_end
         for prev, cur in zip(group, group[1:], strict=False)
     )
 
@@ -195,8 +208,9 @@ def _link_group(
     """Enlaza las estimadas pendientes con la factura que las cierra.
 
     Solo si la cadena (factura anterior del contrato, si existe, + estimadas +
-    ``closer``) es contigua. Devuelve si lo era; si no, no toca nada: tras un
-    hueco, la factura que falta pudo ser la que las regularizó.
+    ``closer``) es contigua (cada una empieza el día en que acaba la anterior).
+    Devuelve si lo era; si no, no toca nada: tras un hueco, la factura que
+    falta pudo ser la que las regularizó.
     """
     first = pending[0]
     chain = [result[first - 1].stored] if first > 0 else []
@@ -222,10 +236,12 @@ async def match_contract(
     ``estimada`` (o ``no_leida`` si son ilegibles) y con la comparación de su
     propia ventana. El grupo lo cierra la siguiente factura con periodo real:
 
-    * Real legible: se compara la ventana combinada desde el inicio de la
-      primera estimada hasta el final de la real. Queda ``sin_datos`` si:
-      - la cadena no es contigua, contando la factura anterior del contrato
-        (R11: falta una factura antes de la primera estimada);
+    * Real legible: se compara la ventana combinada desde el día siguiente al
+      inicio de la primera estimada hasta el día siguiente al final de la real.
+      Queda ``sin_datos`` si:
+      - la cadena no es contigua (cada factura empieza el día en que acaba la
+        anterior), contando la factura anterior del contrato (R11: falta una
+        factura antes de la primera estimada);
       - el grupo contiene una estimada ilegible (D8);
       - la primera estimada es la factura más antigua guardada (D8: no se sabe
         si había estimadas anteriores);
@@ -238,8 +254,8 @@ async def match_contract(
       factura que falta pudo ser la que las regularizó.
 
     Una real legible sin estimadas pendientes se compara en su propia ventana,
-    salvo si no es contigua con la factura anterior guardada del contrato
-    (hueco o solape, aunque la anterior sea ilegible): entonces queda
+    salvo si no empieza el día en que acaba la factura anterior guardada del
+    contrato (hueco o solape, aunque la anterior sea ilegible): entonces queda
     ``sin_datos`` (R25), porque la factura que falta pudo regularizar parte de
     esta. La factura más antigua guardada sí se compara.
     """

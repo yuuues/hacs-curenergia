@@ -1031,7 +1031,7 @@ async def test_device_names_and_latest(
         estimated=False,
         number="A2",
         contract="CT-0001234",
-        period_start=date(2026, 9, 29),
+        period_start=date(2026, 9, 28),
         period_end=date(2026, 10, 28),
     )
     second = make_invoice(estimated=False, number="B1", contract="CT-0005678")
