@@ -146,12 +146,19 @@ El botón **Buscar facturas ahora** lee el buzón sin esperar al sondeo.
 | `no_leida` | La comprobación interna del PDF falló (las sumas no cuadran). Indica un fallo del lector, no de CurEnergía. |
 | `gas` | Factura de gas: se muestra sin casar. |
 
-**Cobertura de Datadis.** Las fechas de una factura son `[inicio 00:00, fin + 1 día
-00:00)` en la zona horaria de Home Assistant. Se consideran cubiertas si e-data
-tiene casi todas las horas (como mucho 2 menos que las de la ventana), la primera
-empieza antes de inicio + 2 horas y la última empieza como mucho 3
-horas antes del final. El cambio de hora (octubre/marzo) se tiene en cuenta. Si no
-se cumple, el estado es `sin_datos`.
+**Qué horas abarca una factura.** CurEnergía factura de lectura a lectura: una
+factura «del 29 de agosto al 28 de septiembre» va de la lectura del día 29 a la del
+día 28, y la siguiente empieza el mismo 28 de septiembre (dos facturas seguidas
+comparten esa fecha). La lectura del primer día cierra la factura anterior, así que
+la factura `inicio a fin` se compara con e-data en `[inicio + 1 día 00:00, fin + 1 día
+00:00)`, en la zona horaria de Home Assistant. Esta regla sale de comparar facturas
+reales con Datadis.
+
+**Cobertura de Datadis.** Esa ventana se considera cubierta si e-data tiene casi
+todas sus horas (como mucho 2 menos), la primera empieza antes de que pasen 2 horas
+desde el inicio de la ventana y la última empieza como mucho 3 horas antes de su
+final. El cambio de hora (octubre/marzo) se tiene en cuenta. Si no se cumple, el
+estado es `sin_datos`.
 
 **Datos incompletos nunca dan `no_cuadra`.** Si a e-data le falta alguna hora
 dentro de la ventana (aunque esté cubierta), una diferencia por encima del umbral
@@ -160,19 +167,19 @@ está dentro del umbral, queda `ok`. Los costes de e-data solo se usan si
 `power_cost` y `energy_cost` cumplen la misma regla de cobertura; si no, la parte en
 € no se calcula.
 
-**Falta la factura anterior.** Una factura real cuyo periodo no empieza el día
-siguiente al final de la factura anterior guardada de ese contrato (porque falta
-una factura o porque se solapan) queda `sin_datos`: la que falta pudo regularizar
+**Falta la factura anterior.** Una factura real cuyo periodo no empieza el mismo
+día en que acaba la factura anterior guardada de ese contrato (porque falta una
+factura o porque se solapan) queda `sin_datos`: la que falta pudo regularizar
 parte de esta. La factura más antigua guardada sí se compara.
 
 **Facturas estimadas seguidas de una real.** Una factura real tras una o más
 estimadas regulariza lo estimado, así que se compara la suma de todo el grupo
-(desde el inicio de la primera estimada hasta el final de la real). El grupo debe
-ser contiguo (cada periodo empieza el día después del anterior). La real queda
-`sin_datos` si hay un hueco o falta una factura anterior, si el grupo contiene una
-factura `no_leida`, o si la primera estimada es la factura más antigua guardada
-(no se sabe si había más estimadas antes). Una real ilegible cierra el grupo sin
-compararse con él.
+(del día siguiente al inicio de la primera estimada al día siguiente al final de la
+real). El grupo debe ser contiguo (cada periodo empieza el día en que acaba el
+anterior). La real queda `sin_datos` si hay un hueco o falta una factura anterior,
+si el grupo contiene una factura `no_leida`, o si la primera estimada es la factura
+más antigua guardada (no se sabe si había más estimadas antes). Una real ilegible
+cierra el grupo sin compararse con él.
 
 ## Cómo se comparan los €
 
@@ -196,7 +203,9 @@ de demora y otros conceptos no entran.
 - Los **logs** nunca incluyen CUPS, contrato, número de factura, nombre, dirección,
   correo, asunto ni texto del correo o del PDF; se identifica un correo por su UID.
 - Los **diagnósticos** ocultan servidor IMAP, usuario, contraseña, carpeta, CUPS,
-  contrato y número de factura.
+  contrato y número de factura. Del buzón solo dan contadores: correos de
+  CurEnergía en la carpeta, si la última revisión la leyó entera y el tipo del
+  último error (sin su mensaje).
 - Las facturas se guardan en el almacenamiento de Home Assistant (`.storage/curenergia.*`)
   de esa entrada, y la contraseña en la propia entrada de configuración. Los PDF solo
   se guardan si lo activas.
