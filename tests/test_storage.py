@@ -108,7 +108,7 @@ async def test_add_only_replaces_to_complete_readings(
     assert store.invoices[gas.number] is complete
 
 
-async def test_load_resets_mail_once_when_invoices_lack_the_backfill_mark(
+async def test_load_forgets_seen_once_when_invoices_lack_the_backfill_mark(
     hass: HomeAssistant, hass_storage, fixture_invoice
 ):
     store = InvoiceStore(hass, ENTRY_ID)
@@ -116,6 +116,8 @@ async def test_load_resets_mail_once_when_invoices_lack_the_backfill_mark(
     store.add(build_stored(fixture_invoice("gas_2026-09"), None))
     store.mail.uidvalidity = 7
     store.mail.seen = {1, 2}
+    store.mail.failed = {3: "0.1.0"}
+    store.mail.unsupported = {4}
     await store.async_save()
     assert hass_storage[STORE_KEY]["data"]["readings_backfilled"] is True
 
@@ -126,7 +128,11 @@ async def test_load_resets_mail_once_when_invoices_lack_the_backfill_mark(
     del hass_storage[STORE_KEY]["data"]["readings_backfilled"]
     reset = InvoiceStore(hass, ENTRY_ID)
     await reset.async_load()
-    assert reset.mail == MailState()
+    assert reset.mail.seen == set()
+    # Los avisos de correos ilegibles se mantienen mientras se relee.
+    assert reset.mail.uidvalidity == 7
+    assert reset.mail.failed == {3: "0.1.0"}
+    assert reset.mail.unsupported == {4}
     assert len(reset.invoices) == 1
 
 

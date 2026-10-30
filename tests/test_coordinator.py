@@ -582,7 +582,7 @@ async def test_stored_invoices_get_their_readings_once(
 
     coordinator = entry.runtime_data
     # Se vuelve a leer el correo ya visto, sin duplicar la factura.
-    assert mailbox.calls == [("INBOX", frozenset(), None)]
+    assert mailbox.calls == [("INBOX", frozenset(), 1)]
     assert mailbox.parsed == [b"gas"]
     assert list(coordinator.store.invoices) == [gas.number]
     assert coordinator.store.invoices[gas.number].invoice.reading_m3 == gas.reading_m3

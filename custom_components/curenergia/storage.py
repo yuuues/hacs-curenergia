@@ -259,9 +259,10 @@ class InvoiceStore:
         self.invoices = invoices
         self.mail = mail
         # Facturas guardadas antes de que existieran las lecturas del contador:
-        # se vuelve a leer el buzón una vez para completarlas.
+        # se vuelve a leer el buzón una vez para completarlas. Basta con olvidar
+        # los UID vistos: los fallidos y no soportados no tienen factura guardada.
         if invoices and not data.get("readings_backfilled"):
-            self.reset_mail()
+            self.mail.seen = set()
 
     def add(self, stored: StoredInvoice) -> bool:
         """Guarda la factura; ``False`` si ya existía ese número.
