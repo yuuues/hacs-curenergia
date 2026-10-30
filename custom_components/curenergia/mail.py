@@ -29,7 +29,12 @@ DEFAULT_FETCH_LIMIT = 20
 _SIZE_RE = re.compile(rb"RFC822\.SIZE (\d+)")
 _UID_RE = re.compile(rb"UID (\d+)")
 _TAG_RE = re.compile(r"<[^>]*>")
-_TOTAL_RE = re.compile(r"Importe:\s*([\d.]+,\d{2})\s*€")
+# Importe en formato español (``1.058,40``, ``80,27``) o con punto decimal y
+# sin separador de miles (``80.27``).
+_TOTAL_RE = re.compile(
+    r"Importe:\s*(?:(?P<es>(?:\d+|\d{1,3}(?:\.\d{3})+),\d{2})|(?P<dot>\d+\.\d{2}))"
+    r"\s*€"
+)
 _LIST_RE = re.compile(r"^\((?P<flags>[^)]*)\)\s+(?:\"[^\"]*\"|NIL)\s+(?P<name>.+)$")
 
 
@@ -78,12 +83,17 @@ def _default_factory(host: str, port: int) -> imaplib.IMAP4:
 
 
 def parse_email_total(body: str) -> Decimal | None:
-    """Extrae el importe ``Importe: N,NN €`` de un cuerpo de correo (texto o HTML)."""
+    """Extrae el importe ``Importe: N,NN €`` de un cuerpo de correo (texto o HTML).
+
+    Admite ``1.058,40 €`` (español) y ``80.27 €`` (punto decimal, sin miles).
+    """
     text = html.unescape(_TAG_RE.sub("", body))
     match = _TOTAL_RE.search(text)
     if match is None:
         return None
-    return parse_decimal(match.group(1))
+    if match.group("dot") is not None:
+        return Decimal(match.group("dot"))
+    return parse_decimal(match.group("es"))
 
 
 def _fold(text: str) -> str:

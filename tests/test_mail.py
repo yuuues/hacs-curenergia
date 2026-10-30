@@ -288,6 +288,29 @@ def test_parse_email_total_from_html() -> None:
     assert parse_email_total("sin importe") is None
 
 
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ("Importe: 80.27 €", Decimal("80.27")),
+        ("<p>Importe: 80.27&nbsp;€</p>", Decimal("80.27")),
+        ("Importe: 1058.40 €", Decimal("1058.40")),
+        ("Importe: 1.058,40 €", Decimal("1058.40")),
+        ("Importe: 80,27 €", Decimal("80.27")),
+        ("Importe: 1058,40 €", Decimal("1058.40")),
+    ],
+)
+def test_parse_email_total_decimal_formats(body: str, expected: Decimal) -> None:
+    assert parse_email_total(body) == expected
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["Importe: 1.058 €", "Importe: 1.058.40 €", "Importe: 80.2 €", "Importe: 1.0,40 €"],
+)
+def test_parse_email_total_rejects_ambiguous_numbers(body: str) -> None:
+    assert parse_email_total(body) is None
+
+
 def test_check_login_logs_in_and_out() -> None:
     fake = make_fake()
     make_client(fake).check_login()
