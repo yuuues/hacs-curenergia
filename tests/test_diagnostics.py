@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 from unittest.mock import patch
 
+import pypdf
 import pytest
 from homeassistant.components.diagnostics import REDACTED
 from homeassistant.core import HomeAssistant
@@ -104,6 +105,7 @@ async def test_diagnostics_redacted(
         "password": REDACTED,
     }
     assert result["pycurenergia_version"] == LIB_VERSION
+    assert result["pypdf_version"] == pypdf.__version__
     assert result["mail"] == {
         "uidvalidity": 1,
         "seen": 3,

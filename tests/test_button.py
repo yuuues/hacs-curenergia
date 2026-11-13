@@ -7,6 +7,7 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from pycurenergia import InvoiceParseError
 
 from custom_components.curenergia.const import DOMAIN
 
@@ -53,3 +54,20 @@ async def test_button_requests_refresh(hass: HomeAssistant, mailbox: FakeMailbox
     await hass.async_block_till_done()
 
     assert len(mailbox.calls) == calls_before + 1
+
+
+async def test_button_retries_failed_mail(hass: HomeAssistant, mailbox: FakeMailbox):
+    mailbox.add(1, (b"bad", InvoiceParseError("number")))
+    entry = make_entry()
+    await setup_entry(hass, entry)
+    assert mailbox.parsed == [b"bad"]
+
+    await hass.services.async_call(
+        BUTTON_DOMAIN,
+        SERVICE_PRESS,
+        {ATTR_ENTITY_ID: _button_id(hass, entry.entry_id)},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert mailbox.parsed == [b"bad", b"bad"]

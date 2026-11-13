@@ -342,6 +342,56 @@ async def test_parse_error_recorded_and_retried_on_new_version(
     assert coordinator.data.unreadable_emails == 1
 
 
+async def test_unreadable_pdf_warning_gives_the_reason_without_invoice_text(
+    hass: HomeAssistant, mailbox: FakeMailbox, caplog
+):
+    secret = "TEXTO PRIVADO " + "DE LA FACTURA"
+    damaged = InvoiceReadError("No se pudo leer el PDF")
+    damaged.__cause__ = KeyError(secret)
+    mailbox.add(1, (b"bad-1", InvoiceParseError("number", f"Valor: {secret}")))
+    mailbox.add(2, (b"bad-2", damaged))
+    mailbox.add(3, (b"bad-3", InvoiceReadError("El PDF ocupa demasiado")))
+
+    with caplog.at_level(logging.WARNING):
+        await _setup(hass)
+
+    log = integration_log(caplog)
+    assert "UID 1: an invoice PDF could not be read (field=number)" in log
+    assert (
+        "UID 2: an invoice PDF could not be read (InvoiceReadError, cause=KeyError)"
+        in log
+    )
+    assert "UID 3: an invoice PDF could not be read (InvoiceReadError)" in log
+    assert secret not in caplog.text
+
+
+async def test_retry_failed_reads_failed_mail_once_with_same_version(
+    hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice
+):
+    elec = _real(fixture_invoice("electricity_2026-10"))
+    mailbox.add(1, (b"bad-1", InvoiceParseError("number")))
+    mailbox.add(2, (b"bad-2", InvoiceReadError("damaged")))
+    coordinator = await _setup(hass)
+    assert mailbox.parsed == [b"bad-1", b"bad-2"]
+
+    # El UID 1 ya se puede leer; el 2 sigue fallando.
+    mailbox.pdfs[b"bad-1"] = elec
+    coordinator.retry_failed = True
+    await coordinator.async_refresh()
+
+    # Cada fallido se vuelve a leer una sola vez, sin cambiar de versión.
+    assert mailbox.parsed == [b"bad-1", b"bad-2", b"bad-1", b"bad-2"]
+    assert coordinator.retry_failed is False
+    assert coordinator.store.mail.failed == {2: __version__}
+    assert coordinator.store.mail.seen == {1}
+    assert list(coordinator.store.invoices) == [elec.number]
+
+    # El siguiente refresco normal no los reintenta.
+    await coordinator.async_refresh()
+    assert mailbox.calls[-1][1] == frozenset({1, 2})
+    assert len(mailbox.parsed) == 4
+
+
 async def test_unexpected_parser_error_recorded_as_failed(
     hass: HomeAssistant, mailbox: FakeMailbox, fixture_invoice, caplog
 ):

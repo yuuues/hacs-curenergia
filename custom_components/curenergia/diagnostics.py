@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from importlib.metadata import version
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -58,6 +59,7 @@ async def async_get_config_entry_diagnostics(
             "options": dict(entry.options),
             "data": dict(entry.data),
             "pycurenergia_version": LIB_VERSION,
+            "pypdf_version": version("pypdf"),
             "mail": {
                 "uidvalidity": mail.uidvalidity,
                 "seen": len(mail.seen),

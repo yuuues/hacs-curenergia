@@ -100,6 +100,20 @@ async def _no_totals(start: datetime, end: datetime) -> Totals | None:
     return None
 
 
+def _failure_reason(err: InvoiceParseError | InvoiceReadError) -> str:
+    """Motivo de un PDF ilegible, sin texto de la factura (R22).
+
+    De ``InvoiceParseError`` solo el nombre del campo: su mensaje puede llevar
+    el valor leído. De ``InvoiceReadError``, la clase de la excepción original.
+    """
+    if isinstance(err, InvoiceParseError):
+        return f"field={err.field}"
+    cause = err.__cause__
+    if cause is None:
+        return type(err).__name__
+    return f"{type(err).__name__}, cause={type(cause).__name__}"
+
+
 class _UnsafePathError(Exception):
     """La ruta del PDF saldría de la carpeta de PDF."""
 
@@ -149,6 +163,9 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         self.mail_last_read_complete = False
         # Clase de la excepción del último fallo del correo (sin su mensaje).
         self.mail_last_error: str | None = None
+        # El próximo refresco reintenta los correos fallidos aunque la versión
+        # de la librería no haya cambiado (botón «Buscar facturas ahora»).
+        self.retry_failed = False
 
     async def async_totals_provider(self, cups: str) -> TotalsProvider | None:
         """Proveedor de sumas de e-data para ``cups``; ``None`` si no hay e-data."""
@@ -207,13 +224,16 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
         # lotes, y se para si un lote no avanza; el resto, en el siguiente sondeo.
         complete = False
         batch = 0
+        # Fallidos que se reintentan en este refresco: cada uno, una sola vez.
+        forced = set(self.store.mail.failed) if self.retry_failed else set()
+        self.retry_failed = False
         while True:
             batch += 1
             mail = self.store.mail
             retry_later = {
                 uid for uid, version in mail.failed.items() if version == LIB_VERSION
             }
-            skip = mail.seen | mail.unsupported | retry_later
+            skip = mail.seen | mail.unsupported | (retry_later - forced)
             try:
                 result = await self.hass.async_add_executor_job(
                     client.fetch, folder, frozenset(skip), mail.uidvalidity
@@ -227,6 +247,7 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
                 self._record_mail_failure(err)
                 return await self._async_mail_failed(err)
 
+            forced -= result.fetched
             self.mail_folder_messages = len(result.all_uids)
             await self._async_ingest_batch(result, folder, save_pdfs)
             if not result.remaining:
@@ -315,8 +336,12 @@ class CurenergiaCoordinator(DataUpdateCoordinator[CoordinatorData]):
             try:
                 invoice = await self.hass.async_add_executor_job(parse_invoice_pdf, pdf)
                 stored = build_stored(invoice, email_total)
-            except (InvoiceParseError, InvoiceReadError):
-                _LOGGER.warning("UID %s: an invoice PDF could not be read", message.uid)
+            except (InvoiceParseError, InvoiceReadError) as err:
+                _LOGGER.warning(
+                    "UID %s: an invoice PDF could not be read (%s)",
+                    message.uid,
+                    _failure_reason(err),
+                )
                 failed = True
                 continue
             except UnsupportedInvoiceError:

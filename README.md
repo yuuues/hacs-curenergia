@@ -328,9 +328,11 @@ descargan: se cuentan como no soportados (`unsupported_emails`) y no se reintent
 
 Si un correo trae un PDF que la librería no entiende, no hay número de factura y,
 por tanto, no hay fila. Se recuerda el correo junto con la versión de `pycurenergia`
-y se **reintenta cuando esa versión cambia**; mientras tanto se cuenta como correo
-ilegible en el resumen (`curenergia/summary`) y en los diagnósticos. Las facturas
-rectificativas y los abonos no están soportados: se cuentan aparte y no se reintentan.
+y se **reintenta cuando esa versión cambia** o al pulsar «Buscar facturas ahora»;
+mientras tanto se cuenta como correo ilegible en el resumen (`curenergia/summary`) y
+en los diagnósticos. El aviso del registro indica el motivo (`field=number`, o el
+tipo de error), nunca texto de la factura. Las facturas rectificativas y los abonos
+no están soportados: se cuentan aparte y no se reintentan.
 
 ## Desinstalación
 

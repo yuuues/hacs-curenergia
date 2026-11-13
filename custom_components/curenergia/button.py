@@ -37,7 +37,8 @@ class CheckNowButton(ButtonEntity):
         )
 
     async def async_press(self) -> None:
-        """Pide un refresco del coordinador."""
+        """Pide un refresco que reintenta también los correos fallidos."""
+        self._coordinator.retry_failed = True
         await self._coordinator.async_request_refresh()
 
 
