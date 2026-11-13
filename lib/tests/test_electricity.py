@@ -219,3 +219,15 @@ def test_missing_reading_type_raises(fixture_text, reading):
         parse_electricity(text)
 
     assert excinfo.value.field == "estimated"
+
+
+@pytest.mark.parametrize("ordinal", ["ë", "", "°", "o"])
+def test_number_label_without_ordinal_sign(fixture_text, ordinal):
+    """pypdf anterior a 6.16 extrae el «º» de «Nº Factura» como «ë»."""
+    text = fixture_text(FIXTURE)
+    assert "Nº Factura:" in text
+    expected = parse_electricity(text)
+
+    inv = parse_electricity(text.replace("Nº Factura", f"N{ordinal} Factura"))
+
+    assert inv == expected

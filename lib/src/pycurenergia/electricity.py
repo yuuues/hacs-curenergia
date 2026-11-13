@@ -22,8 +22,11 @@ from pycurenergia.numbers import parse_spanish_date
 _DATE = r"\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóú]+\s+de\s+\d{4}"
 _FLAGS = re.MULTILINE
 
-_NUMBER_RE = re.compile(r"Nº Factura:[ \t]*(\d+)\b")
-_ISSUE_DATE_RE = re.compile(rf"Nº Factura:[ \t]*\d+\s+emitida\s+el\s+({_DATE})")
+# pypdf anterior a 6.16 extrae el «º» de «Nº» como otro carácter: se admite
+# cualquiera (o ninguno) en su lugar.
+_NUMBER_LABEL = r"\bN\S?[ \t]*Factura:[ \t]*"
+_NUMBER_RE = re.compile(rf"{_NUMBER_LABEL}(\d+)\b")
+_ISSUE_DATE_RE = re.compile(rf"{_NUMBER_LABEL}\d+\s+emitida\s+el\s+({_DATE})")
 _PERIOD_RE = re.compile(rf"Periodo de consumo:\s*({_DATE})\s+a\s+({_DATE})")
 _CONTRACT_RE = re.compile(
     r"Referencia del contrato de suministro \([^)]*\):[ \t]*(\d+)\b"
