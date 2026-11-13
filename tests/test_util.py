@@ -41,3 +41,5 @@ def test_returns_float():
 def test_price_per_kwh():
     assert price_per_kwh(Decimal("102.55"), Decimal("380.06")) == 0.2698
     assert price_per_kwh(Decimal("1"), Decimal(0)) is None
+    # Regularización de gas con consumo neto negativo.
+    assert price_per_kwh(Decimal("9.18"), Decimal("-31.84")) is None

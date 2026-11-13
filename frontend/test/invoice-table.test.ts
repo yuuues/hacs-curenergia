@@ -442,6 +442,61 @@ describe("curenergia-invoice-table", () => {
     expect(bodyRows(el)).toHaveLength(3);
   });
 
+  it("marks a period with no invoice between two rows", async () => {
+    const el = await mount({
+      contracts: [
+        contract("electricity", [
+          row("F-1", "2026-02-27", { period_start: "2026-01-31" }),
+          row("F-2", "2026-05-30", { period_start: "2026-04-29" }),
+          row("F-3", "2026-06-29", { period_start: "2026-05-30" }),
+        ]),
+      ],
+    });
+
+    const all = [...root(el).querySelectorAll("tbody tr")];
+    expect(all.map((tr) => tr.className.trim().split(" ")[0])).toEqual([
+      "row",
+      "row",
+      "gap",
+      "row",
+    ]);
+    const gap = all[2];
+    expect(gap.textContent).toContain("27/02 – 29/04/2026");
+    expect(gap.textContent).toContain("sin factura");
+    expect(gap.querySelector("td")?.getAttribute("colspan")).toBe("6");
+    expect(gap.querySelector("button")).toBeNull();
+  });
+
+  it("does not mark a gap when periods share the day or start the day after", async () => {
+    const el = await mount({
+      contracts: [
+        contract("gas", [
+          gasRow("G-1", "2026-05-08", { period_start: "2026-03-06" }),
+          gasRow("G-2", "2026-07-06", { period_start: "2026-05-08" }),
+          gasRow("G-3", "2026-09-07", { period_start: "2026-07-07" }),
+        ]),
+      ],
+      supply: "gas",
+    });
+
+    expect(root(el).querySelectorAll("tbody tr.gap")).toHaveLength(0);
+  });
+
+  it("marks no gap after the oldest shown row", async () => {
+    const el = await mount({
+      maxInvoices: 1,
+      contracts: [
+        contract("electricity", [
+          row("F-1", "2026-02-27", { period_start: "2026-01-31" }),
+          row("F-2", "2026-06-29", { period_start: "2026-05-30" }),
+        ]),
+      ],
+    });
+
+    expect(bodyRows(el)).toHaveLength(1);
+    expect(root(el).querySelectorAll("tbody tr.gap")).toHaveLength(0);
+  });
+
   it("shows a header per contract when there are two of the same supply", async () => {
     const el = await mount({
       contracts: [

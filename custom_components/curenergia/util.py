@@ -24,7 +24,10 @@ def price(value: Decimal | None) -> float | None:
 
 
 def price_per_kwh(total: Decimal, kwh: Decimal) -> float | None:
-    """Importe total ÷ kWh (€/kWh); ``None`` si no hay kWh."""
-    if kwh == 0:
+    """Importe total ÷ kWh (€/kWh); ``None`` si no hay kWh.
+
+    Tampoco hay precio con kWh negativos (regularización de gas a devolver).
+    """
+    if kwh <= 0:
         return None
     return price(total / kwh)

@@ -4,6 +4,9 @@ const ES = {
   // Pills next to the period
   pill_estimated: "estimada",
   pill_unreadable: "no se pudo leer",
+  // Row for a period with no stored invoice
+  pill_no_invoice: "sin factura",
+  gap_hint: "No hay factura guardada de este periodo; puede ser un correo que no se pudo leer.",
   // Tabs
   tab_electricity: "Luz",
   tab_gas: "Gas",
@@ -71,6 +74,8 @@ export type StringKey = keyof typeof ES;
 const EN: Record<StringKey, string> = {
   pill_estimated: "estimated",
   pill_unreadable: "could not be read",
+  pill_no_invoice: "no invoice",
+  gap_hint: "No invoice stored for this period; it may be an e-mail that could not be read.",
   tab_electricity: "Electricity",
   tab_gas: "Gas",
   col_period: "Period",

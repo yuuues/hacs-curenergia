@@ -55,6 +55,23 @@ function newestFirst(a: InvoiceRow, b: InvoiceRow): number {
   );
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Period with no stored invoice between two consecutive rows (newest first),
+ * or null when they are contiguous. Consecutive invoices share the cut-off day
+ * or start the day after, so a gap needs more than one day in between.
+ */
+export function gapBetween(
+  newer: InvoiceRow,
+  older: InvoiceRow,
+): { start: string; end: string } | null {
+  const from = Date.parse(older.period_end);
+  const to = Date.parse(newer.period_start);
+  if (Number.isNaN(from) || Number.isNaN(to) || to - from <= DAY_MS) return null;
+  return { start: older.period_end, end: newer.period_start };
+}
+
 export class CurenergiaInvoiceTable extends LitElement {
   static properties = {
     hass: { attribute: false },
@@ -158,6 +175,18 @@ export class CurenergiaInvoiceTable extends LitElement {
     }
     tr.row.estimated {
       color: var(--secondary-text-color);
+    }
+    /* Period with no stored invoice: muted, dashed, never clickable. */
+    tr.gap td {
+      border-bottom: 1px dashed var(--divider-color);
+      color: var(--secondary-text-color);
+      font-style: italic;
+      text-align: left;
+      white-space: normal;
+    }
+    .gap-hint {
+      font-size: 0.85em;
+      margin-left: 6px;
     }
     .pill {
       border: 1px solid var(--divider-color);
@@ -284,10 +313,32 @@ export class CurenergiaInvoiceTable extends LitElement {
             </tr>
           </thead>
           <tbody>
-            ${shown.map((invoice) => this._renderRow(contract, invoice, headers.length))}
+            ${shown.map((invoice, index) => [
+              this._renderRow(contract, invoice, headers.length),
+              this._renderGap(invoice, shown[index + 1], headers.length),
+            ])}
           </tbody>
         </table>
       </div>
+    `;
+  }
+
+  /** Row that marks a period with no stored invoice between two rows. */
+  private _renderGap(
+    newer: InvoiceRow,
+    older: InvoiceRow | undefined,
+    columns: number,
+  ): TemplateResult | typeof nothing {
+    const gap = older ? gapBetween(newer, older) : null;
+    if (gap === null) return nothing;
+    return html`
+      <tr class="gap">
+        <td colspan=${columns}>
+          ${formatPeriod(gap.start, gap.end)}
+          <span class="pill">${t(this.hass, "pill_no_invoice")}</span>
+          <span class="gap-hint">${t(this.hass, "gap_hint")}</span>
+        </td>
+      </tr>
     `;
   }
 
