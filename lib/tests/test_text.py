@@ -1,3 +1,4 @@
+import logging
 from io import BytesIO
 
 import pytest
@@ -87,3 +88,13 @@ def test_parse_invoice_pdf_end_to_end(fixture_text):
     pdf = _pdf([page.split("\n") for page in text.split("\f")])
 
     assert parse_invoice_pdf(pdf) == parse_invoice_text(text)
+
+
+def test_pypdf_fonttools_warning_is_silenced(caplog):
+    logger = logging.getLogger("pypdf._cmap")
+
+    with caplog.at_level(logging.WARNING, logger="pypdf._cmap"):
+        logger.warning("fontTools is required to fully parse the encoding of %s", "x")
+        logger.warning("another pypdf warning")
+
+    assert [r.getMessage() for r in caplog.records] == ["another pypdf warning"]

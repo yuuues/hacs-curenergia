@@ -1,5 +1,6 @@
 """Extracción del texto de un PDF de factura."""
 
+import logging
 from io import BytesIO
 
 from pypdf import PdfReader
@@ -11,6 +12,20 @@ MAX_PDF_BYTES = 10 * 1024 * 1024
 
 MAX_PAGES = 20
 """Número máximo de páginas admitido; una factura real tiene 4."""
+
+
+class _FontToolsNoise(logging.Filter):
+    """Descarta el aviso de pypdf «fontTools is required…».
+
+    Sale varias veces por fuente y página (cientos por factura) y el texto de
+    estas facturas se extrae bien sin fontTools.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not str(record.msg).startswith("fontTools is required")
+
+
+logging.getLogger("pypdf._cmap").addFilter(_FontToolsNoise())
 
 
 def extract_text(pdf: bytes) -> str:

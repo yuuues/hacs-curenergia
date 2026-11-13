@@ -35,11 +35,17 @@ _CUPS_RE = re.compile(rf"CUPS:[ \t]*({CUPS})")
 _KWH_RE = re.compile(rf"Su consumo en el periodo facturado ha sido:\s*({NUM})\s*kWh")
 _KWH_PERIOD_RE = r"Consumo en P{n}:\s*(" + NUM + r")\s*kWh"
 _TOTAL_RE = re.compile(rf"TOTAL IMPORTE FACTURA:\s*({NUM})\s*€")
+# «IVA 21 % s/…» o, con el tipo rebajado, «IVA Reducido (*) 10 % s/…».
 _VAT_RE = re.compile(
-    rf"{BOL}IVA\s+({NUM})\s*%\s*s/\s*({NUM})\s*€\s+({NUM})\s*€", _FLAGS
+    rf"{BOL}IVA(?:[ \t]+Reducido)?(?:[ \t]*\(\*\))?\s+({NUM})\s*%\s*s/\s*({NUM})\s*€"
+    rf"\s+({NUM})\s*€",
+    _FLAGS,
 )
 _LATE_INTEREST_RE = re.compile(rf"Intereses de demora \(\*\)\s*({NUM})\s*€")
-_ESTIMATED_RE = re.compile(r"Lectura actual \((real|estimada)\)")
+# «Lectura actual (real)» o, en facturas sin ese bloque, «Última lectura: real».
+_ESTIMATED_RE = re.compile(
+    r"Lectura actual \((real|estimada)\)|Última lectura:[ \t]*(real|estimada)\b"
+)
 _METER_HEADER_RE = re.compile(rf"Lectura actual \((real|estimada)\)\s*\(({_DATE})\)")
 _METER_PERIOD_RE = r"Lectura en P{n}\b[^:\n]*:\s*(" + NUM + r")\s*kWh"
 _ENERGY_PRICE_RE = re.compile(
@@ -129,8 +135,9 @@ def parse_electricity(text: str) -> Invoice:
     Lanza ``InvoiceParseError`` si falta un campo obligatorio: ``number``,
     ``issue_date``, ``period``, ``total``, ``kwh``, ``contract``, ``cups``, el
     IVA (``vat``) o el tipo de lectura (``estimated``: debe aparecer
-    ``Lectura actual (real)`` o ``(estimada)``). La factura es estimada si
-    alguna ``Lectura actual`` lo es. Si no aparecen, ``late_interest`` vale 0,
+    ``Lectura actual (real)`` o ``(estimada)``, o bien ``Última lectura: real``
+    o ``estimada``). La factura es estimada si alguna de esas marcas lo es. Si
+    no aparecen, ``late_interest`` vale 0,
     ``tariff`` y ``access_tariff`` cadena vacía y los kWh por periodo y
     ``energy_price_kwh`` ``None``; la potencia contratada solo se informa si
     están punta y valle.
@@ -170,7 +177,7 @@ def parse_electricity(text: str) -> Invoice:
     )
 
     late_interest = _LATE_INTEREST_RE.search(text)
-    readings = _ESTIMATED_RE.findall(text)
+    readings = [a or b for a, b in _ESTIMATED_RE.findall(text)]
     if not readings:
         raise InvoiceParseError("estimated")
     energy_price = _ENERGY_PRICE_RE.search(text)

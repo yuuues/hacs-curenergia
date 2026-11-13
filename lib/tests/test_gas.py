@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from decimal import Decimal
 
@@ -5,7 +6,7 @@ import pytest
 
 from pycurenergia.errors import InvoiceParseError
 from pycurenergia.gas import parse_gas
-from pycurenergia.models import Concept, ConceptKey, SupplyType
+from pycurenergia.models import Concept, ConceptKey, MeterReading, SupplyType
 from pycurenergia.validation import Problem, check_consistency
 
 FIXTURE = "gas_2026-09"
@@ -241,3 +242,100 @@ def test_anchors_survive_form_feed_instead_of_newline(fixture_text):
     assert len(inv.concepts) == 4
     assert inv.vat_amount == Decimal("3.33")
     assert check_consistency(inv) == []
+
+
+_REGULARISATION_TABLE = """\
+Fecha desde Fecha hasta Tipo (Lectura/Consumo) Lectura desde Lectura hasta Cons m3    X FCV    X PCS     = Consumo kWh
+06/05/2026 07/07/2026 Consumo Regularizado 1.000 1.015 -15 0,98400 11,7510 -173,44
+06/05/2026 07/09/2026 Lectura Real 1.000 1.013 13 0,98400 11,7510 150,32
+Consumo Neto (kWh)    -23,12"""  # noqa: E501
+
+
+def _regularisation(text: str, table: str = _REGULARISATION_TABLE) -> str:
+    """Convierte la fixture en una factura de regularización.
+
+    Cambia las líneas de consumo por la tabla de tramos y añade una devolución
+    de energía y otra con el importe en su propia línea; los totales no cambian.
+    """
+    consumption = re.compile(
+        r"^(?:Lectura anterior:|Consumo en m3:|Factor de corrección"
+        r"|Poder Calorífico Superior|Consumo kWh:).*\n",
+        re.MULTILINE,
+    )
+    text, removed = consumption.subn("", text)
+    assert removed == 5
+    replacements = {
+        "Factura con lectura estimada": "Factura con lectura real",
+        "Energía facturada (estimada) 150,32 kWh x 0,04329798 €/kWh 6,51 €": (
+            "Energía facturada (06/05/2026-07/09/2026) 300,00 kWh x 0,04329798 €/kWh"
+            " 12,99 €\n"
+            "Energía facturada (a devolver) (06/05/2026-07/07/2026) -149,68 kWh"
+            " -6,48 €"
+        ),
+        "Alquiler equipos de medida 1,16 €": (
+            "Alquiler equipos de medida 1,19 €\n"
+            "Importe devuelto por refacturación en base a lectura real\n"
+            "(06/05/2026-07/07/2026) (2)\n"
+            "-0,03 €"
+        ),
+        "Lectura actual: estimada 1.013 m3 realizada el 07/09/2026": table,
+    }
+    for old, new in replacements.items():
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    return text
+
+
+def test_regularisation_invoice(fixture_text):
+    inv = parse_gas(_regularisation(fixture_text(FIXTURE)))
+
+    # Consumo neto: lo ya facturado por estimación supera al consumo real.
+    assert inv.kwh == Decimal("-23.12")
+    assert inv.m3 == Decimal("-2")
+    assert inv.estimated is False
+    assert inv.energy_price_kwh is None
+    assert inv.reading_m3 == MeterReading(Decimal("1013"), date(2026, 9, 7), False)
+    assert inv.previous_reading_m3 == MeterReading(
+        Decimal("1000"), date(2026, 5, 6), False
+    )
+    assert [(c.key, c.label, c.amount) for c in inv.concepts] == [
+        (ConceptKey.GAS_FIXED_TERM, "Término fijo mensual", Decimal("7.90")),
+        (ConceptKey.GAS_ENERGY, "Energía facturada", Decimal("12.99")),
+        (ConceptKey.GAS_ENERGY, "Energía facturada (a devolver)", Decimal("-6.48")),
+        (ConceptKey.GAS_TAX, "Impuesto sobre gas natural (estimado)", Decimal("0.30")),
+        (ConceptKey.METER_RENTAL, "Alquiler equipos de medida", Decimal("1.19")),
+        (
+            ConceptKey.OTHER,
+            "Importe devuelto por refacturación en base a lectura real",
+            Decimal("-0.03"),
+        ),
+    ]
+    assert check_consistency(inv) == []
+
+
+def test_regularisation_without_net_line_sums_the_rows(fixture_text):
+    table = _REGULARISATION_TABLE.rsplit("\n", 1)[0]
+
+    inv = parse_gas(_regularisation(fixture_text(FIXTURE), table))
+
+    assert inv.kwh == Decimal("-23.12")
+
+
+def test_regularisation_with_estimated_reading(fixture_text):
+    table = _REGULARISATION_TABLE.replace("Lectura Real", "Lectura Estimada")
+
+    inv = parse_gas(_regularisation(fixture_text(FIXTURE), table))
+
+    assert inv.estimated is True
+    assert inv.reading_m3 == MeterReading(Decimal("1013"), date(2026, 9, 7), True)
+    # No se sabe de qué tipo era la lectura inicial del tramo.
+    assert inv.previous_reading_m3 is None
+
+
+def test_regularisation_without_reading_row_raises(fixture_text):
+    table = _REGULARISATION_TABLE.replace("Lectura Real", "Consumo Regularizado")
+
+    with pytest.raises(InvoiceParseError) as excinfo:
+        parse_gas(_regularisation(fixture_text(FIXTURE), table))
+
+    assert excinfo.value.field == "estimated"

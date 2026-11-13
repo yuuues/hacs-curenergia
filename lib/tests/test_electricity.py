@@ -231,3 +231,33 @@ def test_number_label_without_ordinal_sign(fixture_text, ordinal):
     inv = parse_electricity(text.replace("Nº Factura", f"N{ordinal} Factura"))
 
     assert inv == expected
+
+
+def test_reduced_vat_line(fixture_text):
+    """Con el tipo rebajado la línea es «IVA Reducido (*) 10 % s/…»."""
+    text = fixture_text(FIXTURE)
+    assert text.count("IVA 21 % s/84,63 € 17,77 €") == 2
+
+    reduced = "IVA Reducido (*) 10 % s/84,63 € 8,46 €"
+    inv = parse_electricity(text.replace("IVA 21 % s/84,63 € 17,77 €", reduced))
+
+    assert (inv.vat_rate, inv.vat_base, inv.vat_amount) == (
+        Decimal("10"),
+        Decimal("84.63"),
+        Decimal("8.46"),
+    )
+    # La línea del IVA no pasa a los conceptos.
+    assert all(not c.label.startswith("IVA") for c in inv.concepts)
+
+
+@pytest.mark.parametrize(("kind", "estimated"), [("real", False), ("estimada", True)])
+def test_reading_type_from_last_reading_line(fixture_text, kind, estimated):
+    """Sin bloque «Lectura actual (…)», el tipo sale de «Última lectura: …»."""
+    text = fixture_text(FIXTURE)
+    header = "Lectura actual (real) (28 de septiembre de 2026)"
+    assert text.count("Lectura actual (") == text.count(header) == 1
+
+    inv = parse_electricity(text.replace(header, f"Última lectura: {kind}"))
+
+    assert inv.estimated is estimated
+    assert (inv.reading_p1, inv.reading_p2, inv.reading_p3) == (None, None, None)
