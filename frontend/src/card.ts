@@ -4,7 +4,7 @@ import { fetchInvoices } from "./api";
 import { STRINGS, t, translate } from "./i18n";
 import type { StringKey } from "./i18n";
 import type { ContractInvoices, HomeAssistant, Supply } from "./types";
-import "./invoice-table";
+import { COLUMNS } from "./invoice-table";
 
 export interface CardConfig {
   type?: string;
@@ -12,7 +12,15 @@ export interface CardConfig {
   supply?: Supply;
   max_invoices?: number;
   entry_id?: string;
+  /** Column ids to show in each tab; unset or empty shows them all. */
+  columns_electricity?: string[];
+  columns_gas?: string[];
 }
+
+const COLUMN_OPTIONS = {
+  columns_electricity: "electricity",
+  columns_gas: "gas",
+} as const satisfies Record<string, Supply>;
 
 /** What HA's native card editor expects from `getConfigForm()`. */
 export interface ConfigForm {
@@ -25,6 +33,8 @@ const EDITOR_LABELS: Record<string, StringKey> = {
   supply: "editor_supply",
   max_invoices: "editor_max_invoices",
   entry_id: "editor_entry_id",
+  columns_electricity: "editor_columns_electricity",
+  columns_gas: "editor_columns_gas",
 };
 
 const DEFAULT_MAX_INVOICES = 6;
@@ -57,6 +67,14 @@ function validate(config: unknown): CardConfig {
   }
   if (entry_id !== undefined && typeof entry_id !== "string") {
     throw new Error("entry_id must be a string");
+  }
+  for (const [option, supply] of Object.entries(COLUMN_OPTIONS)) {
+    const value = cleaned[option];
+    if (value === undefined) continue;
+    const known: string[] = COLUMNS[supply].map((column) => column.id);
+    if (!Array.isArray(value) || value.some((id) => !known.includes(id))) {
+      throw new Error(`${option} must be a list with any of: ${known.join(", ")}`);
+    }
   }
   return cleaned as CardConfig;
 }
@@ -113,6 +131,16 @@ export class CurenergiaInvoicesCard extends LitElement {
    */
   static getConfigForm(): ConfigForm {
     const language = document.documentElement.lang || navigator.language || "en";
+    const columns = (supply: Supply) => ({
+      select: {
+        multiple: true,
+        mode: "list",
+        options: COLUMNS[supply].map((column) => ({
+          value: column.id,
+          label: translate(language, column.label),
+        })),
+      },
+    });
     return {
       schema: [
         { name: "title", selector: { text: {} } },
@@ -130,6 +158,8 @@ export class CurenergiaInvoicesCard extends LitElement {
         },
         { name: "max_invoices", selector: { number: { min: 1, max: 60, mode: "box" } } },
         { name: "entry_id", selector: { config_entry: { integration: "curenergia" } } },
+        { name: "columns_electricity", selector: columns("electricity") },
+        { name: "columns_gas", selector: columns("gas") },
       ],
       // Unknown names: `undefined`, so HA uses its own label.
       computeLabel: (item) => {
@@ -232,6 +262,7 @@ export class CurenergiaInvoicesCard extends LitElement {
                 .contracts=${this._data}
                 .supply=${this._supply}
                 .maxInvoices=${config.max_invoices ?? DEFAULT_MAX_INVOICES}
+                .columns=${{ electricity: config.columns_electricity, gas: config.columns_gas }}
                 @supply-changed=${this._onSupplyChanged}
               ></curenergia-invoice-table>`}
         </div>

@@ -142,11 +142,13 @@ Assistant y el idioma de tu perfil (español si empieza por `es`; si no, inglés
 
 La tarjeta y el panel comparten la misma tabla, con pestañas **Luz** y **Gas**:
 
-- **Luz:** Periodo · kWh factura · kWh Datadis · Δ kWh · Importe · Δ €.
+- **Luz:** Periodo · kWh factura · kWh Datadis · Δ kWh · Importe · Δ € · €/kWh.
   *Importe* es el total de la factura (con impuestos, bono social, alquiler, etc.).
   *Δ €* es la diferencia de la parte comparable, **potencia + energía**, entre la
   factura y e-data (ver [Cómo se comparan los €](#cómo-se-comparan-los-)); por eso no
-  hay una columna «€ e-data»: no se puede restar del total.
+  hay una columna «€ e-data»: no se puede restar del total. *€/kWh* es el importe
+  total entre los kWh de la factura (incluye fijos e impuestos): un coste medio
+  «todo incluido», no el precio de la energía.
 - **Gas:** Periodo · kWh · m³ · Importe · €/kWh. No se casa con Datadis.
 - **Última lectura facturada:** encima de la tabla, un recuadro por contrato con la
   lectura del contador de su factura más reciente que la traiga, su fecha y si es real
@@ -188,6 +190,11 @@ El **editor visual** es el formulario nativo de Home Assistant y muestra los mis
 | `supply` | Pestaña inicial | `electricity` | Pestaña que se abre primero: `electricity` (luz) o `gas`. |
 | `max_invoices` | Número máximo de facturas | 6 | Cuántas facturas se listan (de 1 a 60). |
 | `entry_id` | Cuenta de correo (opcional) | todas | Limita la tarjeta a una entrada de la integración (solo útil con varias cuentas de correo). |
+| `columns_electricity` | Columnas de luz | todas | Columnas de la pestaña Luz: `kwh_invoice`, `kwh_edata`, `delta_kwh`, `amount`, `delta_eur`, `price_kwh`. |
+| `columns_gas` | Columnas de gas | todas | Columnas de la pestaña Gas: `kwh`, `m3`, `amount`, `price_kwh`. |
+
+*Periodo* se muestra siempre y el orden de las columnas es fijo. Una lista vacía
+equivale a todas. El panel lateral muestra siempre todas las columnas.
 
 La tarjeta recarga los datos al mostrarse y después cada 15 minutos.
 

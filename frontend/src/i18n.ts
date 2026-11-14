@@ -67,6 +67,8 @@ const ES = {
   editor_supply: "Pestaña inicial",
   editor_max_invoices: "Número máximo de facturas",
   editor_entry_id: "Cuenta de correo (opcional)",
+  editor_columns_electricity: "Columnas de luz (ninguna marcada = todas)",
+  editor_columns_gas: "Columnas de gas (ninguna marcada = todas)",
 } as const;
 
 export type StringKey = keyof typeof ES;
@@ -128,6 +130,8 @@ const EN: Record<StringKey, string> = {
   editor_supply: "Initial tab",
   editor_max_invoices: "Maximum number of invoices",
   editor_entry_id: "Mail account (optional)",
+  editor_columns_electricity: "Electricity columns (none ticked = all)",
+  editor_columns_gas: "Gas columns (none ticked = all)",
 };
 
 export const STRINGS: { es: Record<StringKey, string>; en: Record<StringKey, string> } = {

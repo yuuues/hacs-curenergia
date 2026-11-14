@@ -29,6 +29,30 @@ const SUPPLIES: { supply: Supply; label: StringKey }[] = [
   { supply: "gas", label: "tab_gas" },
 ];
 
+/**
+ * Optional columns of each tab, in table order. The period column is not
+ * listed: it is always shown, because it holds the toggle of the detail.
+ */
+export const COLUMNS = {
+  electricity: [
+    { id: "kwh_invoice", label: "col_kwh_invoice" },
+    { id: "kwh_edata", label: "col_kwh_edata" },
+    { id: "delta_kwh", label: "col_delta_kwh" },
+    { id: "amount", label: "col_amount" },
+    { id: "delta_eur", label: "col_delta_eur" },
+    { id: "price_kwh", label: "col_price_kwh" },
+  ],
+  gas: [
+    { id: "kwh", label: "col_kwh" },
+    { id: "m3", label: "col_m3" },
+    { id: "amount", label: "col_amount" },
+    { id: "price_kwh", label: "col_price_kwh" },
+  ],
+} as const satisfies Record<Supply, readonly { id: string; label: StringKey }[]>;
+
+/** Column ids to show per tab; a missing or empty list shows them all. */
+export type ColumnSelection = Partial<Record<Supply, readonly string[]>>;
+
 const PERIOD_KEYS: { key: keyof PeriodValues; name: string }[] = [
   { key: "p1", name: "P1" },
   { key: "p2", name: "P2" },
@@ -78,8 +102,11 @@ export class CurenergiaInvoiceTable extends LitElement {
     contracts: { attribute: false },
     supply: { type: String },
     maxInvoices: { type: Number, attribute: "max-invoices" },
+    columns: { attribute: false },
     _expanded: { state: true },
   };
+
+  declare columns?: ColumnSelection;
 
   declare hass: HomeAssistant;
   declare contracts: ContractInvoices[];
@@ -291,17 +318,10 @@ export class CurenergiaInvoiceTable extends LitElement {
     const rows = [...contract.invoices].sort(newestFirst);
     const limit = this.maxInvoices;
     const shown = limit && limit > 0 ? rows.slice(0, limit) : rows;
-    const gas = this.supply === "gas";
-    const headers: StringKey[] = gas
-      ? ["col_period", "col_kwh", "col_m3", "col_amount", "col_price_kwh"]
-      : [
-          "col_period",
-          "col_kwh_invoice",
-          "col_kwh_edata",
-          "col_delta_kwh",
-          "col_amount",
-          "col_delta_eur",
-        ];
+    const headers: StringKey[] = [
+      "col_period",
+      ...this._visible(this.supply).map((column) => column.label),
+    ];
     return html`
       ${withName ? html`<h3 class="contract-name">${contract.name}</h3>` : nothing}
       ${this._renderMeter(latestMeter(rows))}
@@ -321,6 +341,14 @@ export class CurenergiaInvoiceTable extends LitElement {
         </table>
       </div>
     `;
+  }
+
+  /** Columns of a tab that the selection keeps, always in table order. */
+  private _visible(supply: Supply): readonly { id: string; label: StringKey }[] {
+    const all = COLUMNS[supply];
+    const chosen = this.columns?.[supply];
+    if (!chosen || chosen.length === 0) return all;
+    return all.filter((column) => chosen.includes(column.id));
   }
 
   /** Row that marks a period with no stored invoice between two rows. */
@@ -449,21 +477,23 @@ export class CurenergiaInvoiceTable extends LitElement {
       </td>
     `;
     const comparison = invoice.comparison;
-    const cellsForSupply =
-      invoice.supply === "gas"
-        ? html`
-            <td>${formatKwh(lang, invoice.kwh)}</td>
-            <td>${formatM3(lang, invoice.m3)}</td>
-            <td>${formatEur(lang, invoice.total)}</td>
-            <td>${formatPricePerKwh(lang, invoice.price_kwh)}</td>
-          `
-        : html`
-            <td>${formatKwh(lang, comparison?.invoice_kwh ?? invoice.kwh)}</td>
-            <td>${formatKwh(lang, comparison?.edata_kwh ?? null)}</td>
-            <td style=${kwhColor}>${formatDelta(lang, comparison?.delta_kwh ?? null, "kwh")}</td>
-            <td>${formatEur(lang, invoice.total)}</td>
-            <td style=${secondary}>${formatDelta(lang, comparison?.delta_eur ?? null, "eur")}</td>
-          `;
+    const cells: Record<string, TemplateResult> = {
+      kwh: html`<td>${formatKwh(lang, invoice.kwh)}</td>`,
+      m3: html`<td>${formatM3(lang, invoice.m3)}</td>`,
+      kwh_invoice: html`<td>${formatKwh(lang, comparison?.invoice_kwh ?? invoice.kwh)}</td>`,
+      kwh_edata: html`<td>${formatKwh(lang, comparison?.edata_kwh ?? null)}</td>`,
+      delta_kwh: html`<td style=${kwhColor}>
+        ${formatDelta(lang, comparison?.delta_kwh ?? null, "kwh")}
+      </td>`,
+      amount: html`<td>${formatEur(lang, invoice.total)}</td>`,
+      delta_eur: html`<td style=${secondary}>
+        ${formatDelta(lang, comparison?.delta_eur ?? null, "eur")}
+      </td>`,
+      price_kwh: html`<td>${formatPricePerKwh(lang, invoice.price_kwh)}</td>`,
+    };
+    const cellsForSupply = this._visible(invoice.supply === "gas" ? "gas" : "electricity").map(
+      (column) => cells[column.id],
+    );
     return html`
       <tr class="row ${invoice.estimated ? "estimated" : ""}" @click=${toggle}>
         ${period} ${cellsForSupply}
