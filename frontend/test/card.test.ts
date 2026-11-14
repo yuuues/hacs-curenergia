@@ -44,6 +44,27 @@ describe("curenergia-invoices-card", () => {
     expect(() => card.setConfig({})).not.toThrow();
   });
 
+  it("validates the column lists and hands them to the table", async () => {
+    const card = document.createElement("curenergia-invoices-card") as CurenergiaInvoicesCard;
+    for (const bad of ["amount", ["nope"], ["m3"], [1]]) {
+      expect(() => card.setConfig({ columns_electricity: bad } as never), String(bad)).toThrow(
+        /columns_electricity/,
+      );
+    }
+    expect(() => card.setConfig({ columns_gas: ["kwh_edata"] })).toThrow(/columns_gas/);
+    expect(() => card.setConfig({ columns_electricity: [], columns_gas: [] })).not.toThrow();
+
+    const shown = makeCard({ columns_electricity: ["amount", "price_kwh"], columns_gas: ["m3"] });
+    document.body.appendChild(shown);
+    shown.hass = fakeHass("en");
+    await flush();
+    await shown.updateComplete;
+    const table = shown.shadowRoot!.querySelector("curenergia-invoice-table") as unknown as {
+      columns: unknown;
+    };
+    expect(table.columns).toEqual({ electricity: ["amount", "price_kwh"], gas: ["m3"] });
+  });
+
   it("returns a stub config", () => {
     const ctor = customElements.get("curenergia-invoices-card") as unknown as {
       getStubConfig(): unknown;
@@ -72,10 +93,17 @@ describe("curenergia-invoices-card", () => {
       expect(customElements.get("curenergia-invoices-card-editor")).toBeUndefined();
     });
 
-    it("describes the four fields with HA selectors", () => {
+    it("describes the fields with HA selectors", () => {
       document.documentElement.lang = "en";
       const { schema } = ctor().getConfigForm();
-      expect(schema.map((s) => s.name)).toEqual(["title", "supply", "max_invoices", "entry_id"]);
+      expect(schema.map((s) => s.name)).toEqual([
+        "title",
+        "supply",
+        "max_invoices",
+        "entry_id",
+        "columns_electricity",
+        "columns_gas",
+      ]);
       const byName = Object.fromEntries(schema.map((s) => [s.name, s.selector]));
       expect(byName.title).toEqual({ text: {} });
       expect(byName.supply).toEqual({
@@ -89,6 +117,29 @@ describe("curenergia-invoices-card", () => {
       });
       expect(byName.max_invoices).toEqual({ number: { min: 1, max: 60, mode: "box" } });
       expect(byName.entry_id).toEqual({ config_entry: { integration: "curenergia" } });
+      expect(byName.columns_gas).toEqual({
+        select: {
+          multiple: true,
+          mode: "list",
+          options: [
+            { value: "kwh", label: "kWh" },
+            { value: "m3", label: "m³" },
+            { value: "amount", label: "Amount" },
+            { value: "price_kwh", label: "€/kWh" },
+          ],
+        },
+      });
+      const electricity = byName.columns_electricity as {
+        select: { options: { value: string }[] };
+      };
+      expect(electricity.select.options.map((o) => o.value)).toEqual([
+        "kwh_invoice",
+        "kwh_edata",
+        "delta_kwh",
+        "amount",
+        "delta_eur",
+        "price_kwh",
+      ]);
     });
 
     it("labels the fields in Spanish or English", () => {

@@ -127,6 +127,7 @@ describe("curenergia-invoice-table", () => {
       "Δ kWh",
       "Importe",
       "Δ €",
+      "€/kWh",
     ]);
     const c = cells(bodyRows(el)[0]);
     expect(c[0]).toContain("01/07 – 31/07/2026");
@@ -135,6 +136,32 @@ describe("curenergia-invoice-table", () => {
     expect(c[3]).toBe("+2 kWh");
     expect(c[4].replace(/\s/g, " ")).toBe("61,20 €");
     expect(c[5].replace(/\s/g, " ")).toBe("+0,50 €");
+    expect(c[6].replace(/\s/g, " ")).toBe("0,2040 €/kWh");
+  });
+
+  it("shows only the chosen columns, in table order, plus the period", async () => {
+    const el = await mount({
+      contracts: [
+        contract("electricity", [
+          row("F-2", "2026-07-31", { period_start: "2026-06-30" }),
+          row("F-1", "2026-03-31", { period_start: "2026-03-01" }),
+        ]),
+      ],
+      columns: { electricity: ["price_kwh", "amount", "unknown"], gas: [] },
+    });
+    expect(headers(el)).toEqual(["Periodo", "Importe", "€/kWh"]);
+    const c = cells(bodyRows(el)[0]);
+    expect(c).toHaveLength(3);
+    expect(c[1].replace(/\s/g, " ")).toBe("61,20 €");
+    expect(c[2].replace(/\s/g, " ")).toBe("0,2040 €/kWh");
+    const gap = root(el).querySelector("tr.gap td");
+    expect(gap?.getAttribute("colspan")).toBe("3");
+
+    // An empty list means every column.
+    el.supply = "gas";
+    el.contracts = [contract("gas", [gasRow("G-1", "2026-07-31")], "Gas casa", "G1")];
+    await el.updateComplete;
+    expect(headers(el)).toEqual(["Periodo", "kWh", "m³", "Importe", "€/kWh"]);
   });
 
   it("renders gas columns in order", async () => {
@@ -463,7 +490,7 @@ describe("curenergia-invoice-table", () => {
     const gap = all[2];
     expect(gap.textContent).toContain("27/02 – 29/04/2026");
     expect(gap.textContent).toContain("sin factura");
-    expect(gap.querySelector("td")?.getAttribute("colspan")).toBe("6");
+    expect(gap.querySelector("td")?.getAttribute("colspan")).toBe("7");
     expect(gap.querySelector("button")).toBeNull();
   });
 
